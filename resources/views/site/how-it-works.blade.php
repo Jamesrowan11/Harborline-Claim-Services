@@ -1,0 +1,19 @@
+@extends('layouts.site')
+@section('title', __('How Surplus Funds Work'))
+@section('content')
+<div class="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+    <h1 class="font-serif text-4xl font-bold">{{ __('How Surplus Funds Work') }}</h1>
+    <div class="mt-8 space-y-6 text-lg leading-relaxed text-navy-700">
+        <p>{{ __('When a property is sold at a foreclosure sale, tax-related sale, judicial sale, sheriff sale, trustee sale, or another qualifying auction, the sale price sometimes exceeds the total that was owed on the property.') }}</p>
+        <p>{{ __('After the debt, taxes, liens, and approved sale expenses are paid, the remaining money is often called a surplus, overage, or excess proceeds. Depending on the state and the type of sale, that money is typically held by a court, a county office, a trustee, or another official funds holder.') }}</p>
+        <h2 class="font-serif text-2xl font-bold text-navy-900">{{ __('Who may have a claim?') }}</h2>
+        <p>{{ __('Rules differ by state and by sale type, but claimants can include former owners, their heirs or estates, and in some situations other parties with a recorded interest. Whether a specific person has a valid claim is decided by the funds holder — often a court — based on the law and the documents submitted.') }}</p>
+        <h2 class="font-serif text-2xl font-bold text-navy-900">{{ __('Why the process takes time') }}</h2>
+        <p>{{ __('Verifying that funds exist, confirming who may claim them, gathering documents, and waiting for an official decision each take time. Timelines vary widely between counties and courts. We will always tell you honestly what stage your file is in.') }}</p>
+        <h2 class="font-serif text-2xl font-bold text-navy-900">{{ __('What we do — and what we never do') }}</h2>
+        <p>{{ __('We research public records, verify with funds holders, help organize paperwork, and refer legal questions to independent licensed attorneys. We never decide claims, never guarantee outcomes, and never pretend to be a court, county, or government office.') }}</p>
+    </div>
+    <div class="mt-10"><x-independence-disclaimer /></div>
+    <a href="{{ route('site.check') }}" class="btn-primary mt-8">{{ __('Check for Possible Funds') }}</a>
+</div>
+@endsection
