@@ -15,7 +15,8 @@
     "seed:demo": "node src/cli.js seed:demo",
     "scans": "node src/cli.js scans",
     "retention": "node src/cli.js retention",
-    "test": "vitest run"
+    "test": "vitest run",
+    "key:generate": "node src/cli.js key:generate"
   },
   "engines": {
     "node": ">=20"

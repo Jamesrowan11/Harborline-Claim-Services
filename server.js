@@ -16,6 +16,15 @@ import { enforceRetention } from './src/services/retention.js';
 import { seedBaseline } from './src/seeds/baseline.js';
 import { bus } from './src/events.js';
 
+if (config.env === 'production' && !config.appKey) {
+  console.error(
+    'FATAL: APP_KEY environment variable is not set.\n'
+    + 'Generate one in Plesk: Node.js panel -> Run script -> key:generate,\n'
+    + 'then add APP_KEY to Custom environment variables and Restart App.\n'
+    + 'Store a copy in a password manager — it encrypts MFA secrets and sensitive fields.');
+  process.exit(1);
+}
+
 try {
   const [batch, applied] = await db.migrate.latest();
   if (applied.length) console.log(`Migrations applied (batch ${batch}): ${applied.join(', ')}`);
