@@ -1,0 +1,39 @@
+<%- include('../partials/client-top', { title: 'My Details' }) %>
+<h1 class="font-serif text-3xl font-bold">My Details &amp; Preferences</h1>
+<div class="mt-8 space-y-6">
+  <section class="card">
+    <h2 class="font-serif text-xl font-bold">Contact Details</h2>
+    <form method="post" action="/my/profile" class="mt-4 space-y-4">
+      <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="_method" value="PUT">
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div><label class="form-label">Email</label><input class="form-input" type="email" name="email" value="<%= contact.email ?? '' %>"></div>
+        <div><label class="form-label">Phone</label><input class="form-input" name="phone" value="<%= contact.phone ?? '' %>"></div>
+      </div>
+      <div><label class="form-label">Mailing address</label><input class="form-input" name="address_line1" value="<%= contact.address?.line1 ?? '' %>"></div>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div><label class="form-label">City</label><input class="form-input" name="city" value="<%= contact.address?.city ?? '' %>"></div>
+        <div><label class="form-label">State</label><input class="form-input" maxlength="2" name="state" value="<%= contact.address?.state ?? '' %>"></div>
+        <div><label class="form-label">ZIP</label><input class="form-input" name="zip" value="<%= contact.address?.zip ?? '' %>"></div>
+      </div>
+      <button class="btn-primary">Save Changes</button>
+    </form>
+  </section>
+  <section class="card">
+    <h2 class="font-serif text-xl font-bold">Communication Preferences</h2>
+    <div class="mt-4 space-y-4 text-sm">
+      <form method="post" action="/my/profile/withdraw-sms">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <button class="btn-outline !py-2">Stop Text Messages (withdraw SMS consent)</button>
+      </form>
+      <form method="post" action="/my/profile/stop-contact" onsubmit="return confirm('Are you sure? We will stop contacting you except where legally required.')">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <button class="btn-outline !py-2">Ask Us to Stop All Contact</button>
+      </form>
+      <form method="post" action="/my/profile/close-account" onsubmit="return confirm('Request account closure? A team member will confirm what is possible under record-keeping rules.')">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <button class="btn-outline !py-2 !border-burgundy-600 !text-burgundy-600">Request Account Closure</button>
+      </form>
+    </div>
+  </section>
+</div>
+<%- include('../partials/client-bottom') %>

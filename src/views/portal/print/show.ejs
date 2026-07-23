@@ -1,0 +1,33 @@
+<%- include('../../partials/portal-top', { title: reportName }) %>
+<% const qs = Object.entries(filters).filter(([, v]) => v).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&'); %>
+<div class="no-print flex flex-wrap items-center justify-between gap-3">
+  <h1 class="font-serif text-2xl font-bold"><%= reportName %></h1>
+  <div class="flex gap-2">
+    <button onclick="window.print()" class="btn-primary !py-2">Print</button>
+    <a class="btn-outline !py-2" href="/portal/print/<%= reportKey %>/export?format=xlsx&<%= qs %>">XLSX</a>
+    <a class="btn-outline !py-2" href="/portal/print/<%= reportKey %>/export?format=csv&<%= qs %>">CSV</a>
+    <a class="btn-outline !py-2" href="/portal/print/<%= reportKey %>/export?format=pdf&<%= qs %>">PDF</a>
+  </div>
+</div>
+<div class="mt-4 bg-white p-6 shadow-sm print:p-0 print:shadow-none">
+  <div class="mb-4 border-b border-navy-200 pb-3">
+    <h2 class="font-serif text-xl font-bold"><%= reportName %> — <%= brand.name %></h2>
+    <p class="text-xs text-navy-500">
+      Generated: <%= new Date().toISOString().slice(0, 16).replace('T', ' ') %> • Prepared by: <%= user.name %>
+      • Filters: <%= Object.entries(filters).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ') || 'none' %>
+    </p>
+  </div>
+  <table class="min-w-full text-sm">
+    <thead><tr><% for (const column of columns) { %><th class="table-th border-b-2 border-navy-800"><%= column.label %></th><% } %></tr></thead>
+    <tbody class="divide-y divide-navy-100">
+      <% if (!rows.length) { %><tr><td colspan="<%= columns.length %>" class="table-td py-6 text-center text-navy-400">No rows match the selected filters.</td></tr><% } %>
+      <% for (const row of rows) { %>
+        <tr><% row.forEach((cell, i) => { const currency = columns[i].format === 'currency'; %>
+          <td class="table-td <%= currency ? 'text-right' : '' %>"><%= currency && cell !== null ? '$' + Number(cell).toLocaleString('en-US', { minimumFractionDigits: 2 }) : (cell ?? '') %></td>
+        <% }) %></tr>
+      <% } %>
+    </tbody>
+  </table>
+  <p class="mt-6 border-t border-navy-200 pt-3 text-xs text-navy-400"><%= confidentiality %></p>
+</div>
+<%- include('../../partials/portal-bottom') %>

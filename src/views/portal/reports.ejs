@@ -1,0 +1,41 @@
+<%- include('../partials/portal-top', { title: 'Reporting Center' }) %>
+<h1 class="font-serif text-2xl font-bold">Reporting Center</h1>
+<form class="no-print mt-4 flex gap-3" method="get">
+  <input class="form-input !py-2" type="date" name="from" value="<%= from.toISOString().slice(0, 10) %>">
+  <input class="form-input !py-2" type="date" name="to" value="<%= to.toISOString().slice(0, 10) %>">
+  <button class="btn-outline !py-2">Apply</button>
+  <a class="btn-outline !py-2" href="/portal/print">Print &amp; Export Center →</a>
+</form>
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  <div class="card">
+    <h2 class="font-serif text-lg font-bold">Conversion Funnel</h2>
+    <dl class="mt-3 space-y-2 text-sm">
+      <% for (const [label, count] of [['Leads received', funnel.leads], ['Cases opened', funnel.cases], ['Agreements signed', funnel.agreements_signed], ['Claims filed', funnel.claims_filed], ['Recoveries received', funnel.funds_received]]) { %>
+        <div class="flex justify-between"><dt><%= label %></dt><dd class="font-semibold"><%= count %></dd></div>
+      <% } %>
+    </dl>
+  </div>
+  <div class="card">
+    <h2 class="font-serif text-lg font-bold">Monthly Recovery Totals</h2>
+    <ul class="mt-3 space-y-1 text-sm">
+      <% const months = Object.keys(monthlyRecoveries).sort(); %>
+      <% if (!months.length) { %><li class="text-navy-400">No recoveries in this period.</li><% } %>
+      <% for (const month of months) { %>
+        <li class="flex justify-between"><span><%= month %></span><span class="font-semibold">$<%= Number(monthlyRecoveries[month]).toLocaleString('en-US', { minimumFractionDigits: 2 }) %></span></li>
+      <% } %>
+    </ul>
+  </div>
+  <div class="card lg:col-span-2">
+    <h2 class="font-serif text-lg font-bold">Employee Workload</h2>
+    <table class="mt-3 min-w-full text-sm">
+      <thead><tr><th class="table-th">Employee</th><th class="table-th">Title</th><th class="table-th text-right">Open cases</th><th class="table-th text-right">Open tasks</th><th class="table-th text-right">Overdue</th></tr></thead>
+      <tbody>
+        <% for (const row of workload) { %>
+          <tr><td class="table-td"><%= row[0] %></td><td class="table-td"><%= row[1] ?? '' %></td>
+            <td class="table-td text-right"><%= row[2] %></td><td class="table-td text-right"><%= row[3] %></td><td class="table-td text-right"><%= row[4] %></td></tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<%- include('../partials/portal-bottom') %>

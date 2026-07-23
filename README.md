@@ -1,6 +1,6 @@
-# Harborline Claim Services — Platform
+# Harborline Claim Services — Platform (Node.js)
 
-A production-ready Laravel 12 application containing three surfaces:
+A production-ready **Node.js** application containing three surfaces:
 
 1. **Public website** — a warm, traditional, accessibility-first site explaining
    possible surplus funds, with a secure inquiry form, letter verification, and
@@ -13,38 +13,42 @@ A production-ready Laravel 12 application containing three surfaces:
 
 > **Provisional name.** "Harborline Claim Services" is a working name pending
 > entity-name, trademark, domain, social-handle, and licensing-language
-> clearance. Every brand string resolves through `config/branding.php` and the
+> clearance. Every brand string resolves through `src/config.js` and the
 > administrator Settings screen — the product can be renamed without a rebuild.
 > See [COMPLIANCE-PLACEHOLDERS.md](COMPLIANCE-PLACEHOLDERS.md).
 
 ## Stack
 
-- Laravel 12 (PHP 8.3+), Blade + Livewire 3 + Alpine.js + Tailwind CSS 4
-- PostgreSQL 16 **or** MySQL 8 (selected via `DB_CONNECTION`); SQLite for local/test
-- Laravel queues (database driver by default; Redis + Horizon optional)
-- Laravel Scheduler (daily scans, retention, automation ticks)
-- spatie/laravel-permission (roles), maatwebsite/excel (XLSX), barryvdh/laravel-dompdf (PDF), pragmarx/google2fa (TOTP MFA)
-- Pest for tests
+- **Node.js 20+**, Express 4, EJS server-rendered views, Tailwind CSS 4
+- **Knex.js** — PostgreSQL 16 / MySQL 8 selected via env (`DB_CONNECTION`); SQLite for dev/test
+- express-session (DB-backed), bcryptjs, **otplib TOTP MFA** (mandatory for staff)
+- **exceljs** (formatted XLSX), **pdfkit** (PDF), nodemailer (email), node-cron (in-process scheduler)
+- helmet (CSP/security headers), rate limiting, CSRF protection
+- **Vitest + Supertest** for tests
+
+Built for **Plesk Node.js hosting**: the Application Startup File is
+**`server.js`**, which runs the web server, job-queue worker, and scheduler in
+one process — no external cron or workers.
 
 ## Quick start (local development)
 
 ```bash
-composer install
+npm install
 cp .env.example .env
-# For local dev, set: APP_ENV=local, APP_DEBUG=true, DB_CONNECTION=sqlite
-touch database/database.sqlite
-php artisan key:generate
-php artisan migrate --seed        # seeds roles, stages, templates, automations + demo data
-npm ci && npm run build           # or npm run dev
-php artisan serve
+# For local dev set: NODE_ENV=development, DB_CONNECTION=sqlite
+node src/cli.js key:generate      # paste output into .env as APP_KEY
+node src/cli.js migrate
+node src/cli.js seed:demo         # roles, stages, templates, automations + FICTIONAL demo data
+npm run build:css
+npm start                         # http://localhost:3000
 ```
 
-Demo logins (fictional data, local/testing only):
+Demo logins (fictional data, never for production):
 
 | Role | Email | Password |
 |---|---|---|
-| Super Administrator | `admin@example.test` | `demo-admin-password-123` |
-| Case Manager | `manager@example.test` | `demo-manager-password-123` |
+| Super Administrator | `admin@example.test` | `demo-super-administrator-password-123` |
+| Case Manager | `manager@example.test` | `demo-case-manager-password-123` |
 | Researcher | `researcher@example.test` | `demo-researcher-password-123` |
 | Client | `client@example.test` | `demo-client-password-123` |
 
@@ -53,26 +57,37 @@ Staff users are forced through TOTP MFA enrollment on first portal visit.
 ## Key concepts
 
 - **Case numbers** — `HCS-{YEAR}-{STATE}-{COUNTY}-{SEQ:6}` (e.g.
-  `HCS-2026-MD-AA-000001`), format editable in Administration → Settings.
-- **Pipeline** — 42 seeded stages, each mapping to one of the client-safe
-  status labels. Stages are editable in Administration → Pipeline Stages.
+  `HCS-2026-MD-AA-000001`); format editable in Administration → Settings.
+- **Pipeline** — 42 seeded stages, each mapped to a client-safe status label;
+  editable in Administration → Pipeline Stages.
 - **Automation engine** — triggers → conditions → actions with draft/test/
   approval/active modes, idempotency, rate limits, loop prevention, per-case
   pause, and a global emergency stop. See [AUTOMATIONS.md](AUTOMATIONS.md).
 - **Outreach gate** — every automated outbound message must pass template
   approval, consent, opt-out, verification-level, frequency, and hold checks
-  (`app/Services/OutreachGate.php`).
-- **Audit trail** — append-only `audit_events` written for record changes,
-  document views/downloads, exports, logins, consent changes, and more.
-- **Print & Export Center** — 16+ report definitions in
-  `app/Services/ReportRegistry.php`, exported as print-preview HTML, CSV,
-  formatted XLSX, or PDF.
+  (`src/services/outreachGate.js`).
+- **Audit trail** — append-only `audit_events` for record changes, document
+  downloads, exports, logins, consent changes, and more; sensitive fields
+  masked.
+- **Print & Export Center** — 16 report definitions in
+  `src/services/reports.js`, exported as print-preview HTML, CSV, formatted
+  XLSX, or PDF.
+
+## CLI
+
+```bash
+node src/cli.js migrate | rollback | seed | seed:demo
+node src/cli.js scans                  # run the daily scans manually
+node src/cli.js retention [--dry-run]  # apply retention policies
+node src/cli.js key:generate
+node src/cli.js create-admin <email> <name> <password>
+```
 
 ## Documentation
 
 | File | Purpose |
 |---|---|
-| [README-PLESK.md](README-PLESK.md) | Full Plesk deployment guide |
+| [README-PLESK.md](README-PLESK.md) | Full Plesk Node.js deployment guide |
 | [DEPLOYMENT-CHECKLIST.md](DEPLOYMENT-CHECKLIST.md) | Go-live checklist |
 | [SECURITY.md](SECURITY.md) | Security architecture and hardening |
 | [BACKUP-RESTORE.md](BACKUP-RESTORE.md) | Backup and restore procedures |
@@ -85,11 +100,12 @@ Staff users are forced through TOTP MFA enrollment on first portal visit.
 ## Tests
 
 ```bash
-./vendor/bin/pest
+npm test
 ```
 
-Covers authentication + MFA gating, permissions, case numbering, stage
-changes, lead intake + consent capture, duplicate detection, the automation
-engine (all safety modes), the outreach gate, client-portal isolation,
-document permissions, exports, audit logging, scheduled scans, and retention
-(including legal holds).
+49 tests cover authentication + MFA gating, permissions, case numbering,
+lead intake + consent capture, duplicate detection, lead→case conversion,
+stage changes, the automation engine (all safety modes), the outreach gate,
+client-portal isolation, document permissions, exports (CSV/XLSX/PDF),
+letter verification, audit masking, scheduled scans, and retention with
+legal holds.

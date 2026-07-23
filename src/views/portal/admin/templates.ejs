@@ -1,0 +1,28 @@
+<%- include('../../partials/portal-top', { title: 'Templates' }) %>
+<h1 class="font-serif text-2xl font-bold">Document &amp; Communication Templates</h1>
+<p class="mt-2 max-w-2xl text-sm text-navy-500">Merge fields: {{claimant.name}}, {{case.number}}, {{case.status_label}}, {{case.manager}}, {{brand.name}}, {{brand.phone}}, {{brand.disclaimer}}, {{today}}. Editing any template returns it to draft and requires re-approval before it can be sent.</p>
+<div class="mt-6 space-y-4">
+  <% for (const template of templates) { %>
+    <details class="card">
+      <summary class="flex cursor-pointer flex-wrap items-center gap-2">
+        <span class="font-serif font-bold"><%= template.name %></span>
+        <span class="badge bg-navy-100"><%= template.category %></span>
+        <span class="badge <%= template.approval_status === 'approved' ? 'bg-gold-100 text-gold-800' : 'bg-burgundy-500/15 text-burgundy-700' %>"><%= template.approval_status %> v<%= template.version %></span>
+        <% if (template.requires_attorney_review) { %><span class="badge bg-gold-100 text-gold-800">ATTORNEY REVIEW REQUIRED</span><% } %>
+      </summary>
+      <form method="post" action="/portal/admin/templates/<%= template.id %>" class="mt-4 space-y-3">
+        <input type="hidden" name="_csrf" value="<%= csrf %>">
+        <div><label class="form-label">Subject</label><input class="form-input" name="subject" value="<%= template.subject ?? '' %>"></div>
+        <div><label class="form-label">Body</label><textarea class="form-input font-mono text-sm" name="body" rows="10"><%= template.body %></textarea></div>
+        <button class="btn-outline !py-2">Save New Version</button>
+      </form>
+      <% if (template.approval_status !== 'approved' && can('templates.approve')) { %>
+        <form method="post" action="/portal/admin/templates/<%= template.id %>/approve" class="mt-2">
+          <input type="hidden" name="_csrf" value="<%= csrf %>">
+          <button class="btn-primary !py-2">Approve for Use</button>
+        </form>
+      <% } %>
+    </details>
+  <% } %>
+</div>
+<%- include('../../partials/portal-bottom') %>

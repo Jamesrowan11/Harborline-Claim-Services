@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= typeof title !== 'undefined' && title ? title + ' — ' : '' %><%= brand.name %></title>
+  <meta name="description" content="<%= brand.name %> researches public records and helps potential claimants understand the administrative process for possible surplus funds. Not a government agency or law firm. Recovery is not guaranteed.">
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body class="bg-cream font-sans text-navy-900 antialiased">
+<a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-white focus:px-4 focus:py-2 focus:shadow">Skip to main content</a>
+<header class="border-b border-navy-100 bg-white">
+  <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
+    <a href="/" class="flex items-center gap-3">
+      <%- include('brand-mark') %>
+      <span class="leading-tight">
+        <span class="block font-serif text-xl font-bold text-navy-900"><%= brand.name %></span>
+        <span class="block text-xs text-navy-400">Independent research assistance — not a government agency or law firm</span>
+      </span>
+    </a>
+    <nav aria-label="Main navigation" class="flex flex-wrap items-center gap-4 text-base">
+      <a href="/how-surplus-funds-work" class="hover:text-gold-700">How It Works</a>
+      <a href="/our-process" class="hover:text-gold-700">Our Process</a>
+      <a href="/faq" class="hover:text-gold-700">FAQ</a>
+      <a href="/about" class="hover:text-gold-700">About</a>
+      <a href="/verify-a-letter" class="hover:text-gold-700">Verify a Letter</a>
+      <a href="/check-for-possible-funds" class="btn-gold !py-2">Check for Possible Funds</a>
+      <a href="/login" class="btn-outline !py-2">Client Login</a>
+    </nav>
+  </div>
+</header>
+<% if (flash) { %><div class="mx-auto mt-4 max-w-4xl rounded-md border border-gold-200 bg-gold-50 px-4 py-3 text-sm"><%= flash %></div><% } %>
+<main id="main">

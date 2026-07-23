@@ -1,0 +1,22 @@
+<%- include('../partials/client-top', { title: 'My Cases' }) %>
+<h1 class="font-serif text-3xl font-bold">Welcome, <%= user.name %></h1>
+<p class="mt-2 text-navy-600">Here is the current status of your case with us. If anything is unclear, message your case manager — we are happy to explain.</p>
+<div class="mt-8 space-y-4">
+  <% if (!cases.length) { %>
+    <div class="card text-center text-navy-500">No cases are linked to your account yet. If you believe this is an error, please contact us.</div>
+  <% } %>
+  <% for (const caseRow of cases) { %>
+    <a href="/my/cases/<%= caseRow.id %>" class="card block transition hover:shadow-md">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="font-mono text-sm text-navy-500"><%= caseRow.case_number %></p>
+          <p class="mt-1 font-serif text-xl font-bold"><%= caseRow.client_label %></p>
+        </div>
+        <% if (caseRow.documents_needed > 0) { %>
+          <span class="badge bg-gold-100 text-gold-800"><%= caseRow.documents_needed %> document<%= caseRow.documents_needed === 1 ? '' : 's' %> needed</span>
+        <% } %>
+      </div>
+    </a>
+  <% } %>
+</div>
+<%- include('../partials/client-bottom') %>

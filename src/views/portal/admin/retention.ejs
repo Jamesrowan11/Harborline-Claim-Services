@@ -1,0 +1,24 @@
+<%- include('../../partials/portal-top', { title: 'Retention Policies' }) %>
+<h1 class="font-serif text-2xl font-bold">Data Retention Policies</h1>
+<p class="mt-2 max-w-2xl text-sm text-navy-500">Retention rules run daily via the scheduler. Records under legal hold are never touched, and "delete" actions require the policy to be explicitly activated. [ATTORNEY REVIEW REQUIRED] Retention periods should be set with counsel.</p>
+<form method="post" action="/portal/admin/retention" class="card mt-6 max-w-3xl">
+  <input type="hidden" name="_csrf" value="<%= csrf %>">
+  <table class="min-w-full text-sm">
+    <thead><tr><th class="table-th">Record type</th><th class="table-th">Retain (months)</th><th class="table-th">Then</th><th class="table-th">Active</th></tr></thead>
+    <tbody class="divide-y divide-navy-50">
+      <% for (const policy of policies) { %>
+        <tr>
+          <td class="table-td font-medium"><%= policy.record_type.replaceAll('_', ' ') %></td>
+          <td class="table-td"><input class="form-input !w-28 !py-1" type="number" name="policies[<%= policy.id %>][retain_months]" value="<%= policy.retain_months ?? '' %>" placeholder="forever"></td>
+          <td class="table-td">
+            <select class="form-input !py-1" name="policies[<%= policy.id %>][action_after]">
+              <% for (const action of ['review', 'anonymize', 'delete']) { %><option value="<%= action %>" <%= policy.action_after === action ? 'selected' : '' %>><%= action %></option><% } %>
+            </select></td>
+          <td class="table-td"><input type="checkbox" name="policies[<%= policy.id %>][active]" value="1" <%= policy.active ? 'checked' : '' %>></td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+  <button class="btn-primary mt-4">Save Policies</button>
+</form>
+<%- include('../../partials/portal-bottom') %>

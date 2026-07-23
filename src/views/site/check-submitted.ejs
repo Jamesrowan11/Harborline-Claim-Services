@@ -1,0 +1,14 @@
+<%- include('../partials/site-top', { title: 'Submitted for Preliminary Review' }) %>
+<div class="mx-auto max-w-2xl px-4 py-16 text-center sm:px-6">
+  <h1 class="mt-6 font-serif text-4xl font-bold">Submitted for Preliminary Review</h1>
+  <p class="mt-4 text-lg leading-relaxed text-navy-700">
+    Thank you, <%= lead.first_name %>. Your inquiry has been received and assigned reference number
+    <span class="font-mono font-bold text-navy-900"><%= lead.lead_number %></span>.
+  </p>
+  <p class="mt-4 text-navy-700">We will research public records and contact you by your preferred method. A confirmation email is on its way if you provided an email address.</p>
+  <p class="mt-6 rounded-md border border-gold-200 bg-gold-50 px-5 py-4 text-sm text-navy-800">
+    Please note: submitting an inquiry does not mean funds exist or that any recovery is guaranteed. We will tell you honestly what our research finds.
+  </p>
+  <a href="/" class="btn-outline mt-8">Return Home</a>
+</div>
+<%- include('../partials/site-bottom') %>

@@ -14,7 +14,7 @@ event-driven workflows without code. An automation = **trigger** +
 `verification.expired`, `schedule.tick` (hourly recurring).
 
 Time-based triggers are produced by the daily scan command
-(`php artisan hcs:daily-scans`, scheduled 06:00) and the hourly
+(built into server.js, 06:00 daily; manual run: `node src/cli.js scans`) and the hourly
 `schedule.tick`.
 
 ## Conditions
@@ -60,7 +60,7 @@ JSON array executed in order. `{"type": "...", "params": {...}}`.
 | `stop_outreach` | — clears outreach approval |
 | `send_portal_notification` | `message` |
 
-## Safety model (all enforced in `app/Automations/AutomationEngine.php`)
+## Safety model (all enforced in `src/automation/engine.js`)
 
 1. **Modes** — `draft` (never runs), `test` (logs matches, executes nothing),
    `approval` (each run is queued as `pending_approval`), `active`.
@@ -83,12 +83,12 @@ JSON array executed in order. `{"type": "...", "params": {...}}`.
 9. **History & versions** — every run is logged (success/failure/skip reason);
    every saved edit snapshots a version for rollback reference.
 10. **Retries** — queued deliveries retry 3× with backoff; failures land in
-    the run log and the failed-jobs table.
+    the run log and the jobs table with the last error recorded.
 
 ## Default automation templates
 
 22 templates are seeded **in draft mode** (see
-`database/seeders/AutomationSeeder.php`) covering acknowledgment, duplicate
+`src/seeds/baseline.js`) covering acknowledgment, duplicate
 checks, research checklists, verification tasks, stale-source reminders,
 missing-document reminders, attorney escalation, deadline/overdue alerts,
 claim-filed notification, reconciliation, completion messaging, archiving,

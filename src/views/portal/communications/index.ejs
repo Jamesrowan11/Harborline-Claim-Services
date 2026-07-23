@@ -1,0 +1,44 @@
+<%- include('../../partials/portal-top', { title: 'Communication Center' }) %>
+<div class="flex flex-wrap items-center justify-between gap-3">
+  <h1 class="font-serif text-2xl font-bold">Communication Center</h1>
+  <% if (can('communications.send')) { %><a href="/portal/communications/compose" class="btn-primary !py-2">Compose</a><% } %>
+</div>
+<form class="no-print mt-4 flex gap-3" method="get">
+  <select class="form-input max-w-40 !py-2" name="channel">
+    <option value="">All channels</option>
+    <% for (const channel of ['email', 'sms', 'letter', 'call', 'portal_message']) { %><option value="<%= channel %>" <%= query.channel === channel ? 'selected' : '' %>><%= channel %></option><% } %>
+  </select>
+  <select class="form-input max-w-40 !py-2" name="status">
+    <option value="">All statuses</option>
+    <% for (const status of ['draft', 'queued', 'sent', 'delivered', 'bounced', 'returned_mail', 'failed', 'received']) { %><option value="<%= status %>" <%= query.status === status ? 'selected' : '' %>><%= status %></option><% } %>
+  </select>
+  <button class="btn-outline !py-2">Filter</button>
+</form>
+<div class="card mt-4 overflow-x-auto !p-0">
+  <table class="min-w-full divide-y divide-navy-100">
+    <thead><tr><th class="table-th">When</th><th class="table-th">Case</th><th class="table-th">Channel</th><th class="table-th">Dir</th><th class="table-th">Subject</th><th class="table-th">Status</th><th class="table-th"></th></tr></thead>
+    <tbody class="divide-y divide-navy-50">
+      <% if (!communications.length) { %><tr><td colspan="7" class="table-td py-8 text-center text-navy-400">No communications.</td></tr><% } %>
+      <% for (const communication of communications) { %>
+        <tr>
+          <td class="table-td text-xs"><%= new Date(communication.created_at).toLocaleString() %></td>
+          <td class="table-td font-mono text-xs"><% if (communication.case_number) { %><a class="underline" href="/portal/cases/<%= communication.case_id %>"><%= communication.case_number %></a><% } %></td>
+          <td class="table-td"><%= communication.channel %></td>
+          <td class="table-td"><%= communication.direction %></td>
+          <td class="table-td"><%= (communication.subject ?? '').slice(0, 50) %></td>
+          <td class="table-td"><span class="badge bg-navy-100"><%= communication.status %></span></td>
+          <td class="table-td space-x-2">
+            <% if (communication.status === 'draft') { %>
+              <% if (!communication.approved_at && can('communications.approve')) { %>
+                <form class="inline" method="post" action="/portal/communications/<%= communication.id %>/approve"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="underline">Approve</button></form>
+              <% } else if (communication.approved_at && can('communications.send')) { %>
+                <form class="inline" method="post" action="/portal/communications/<%= communication.id %>/send"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="underline">Send</button></form>
+              <% } %>
+            <% } %>
+          </td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/portal-bottom') %>

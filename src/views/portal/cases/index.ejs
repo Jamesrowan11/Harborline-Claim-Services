@@ -1,0 +1,42 @@
+<%- include('../../partials/portal-top', { title: 'Cases' }) %>
+<div class="flex flex-wrap items-center justify-between gap-3">
+  <h1 class="font-serif text-2xl font-bold">Cases</h1>
+  <% if (can('cases.create')) { %><a href="/portal/cases/create" class="btn-primary !py-2">New Case</a><% } %>
+</div>
+<form class="no-print mt-4 flex flex-wrap gap-3" method="get">
+  <input class="form-input max-w-56 !py-2" type="search" name="q" value="<%= query.q ?? '' %>" placeholder="Case #, claimant, address…">
+  <select class="form-input max-w-64 !py-2" name="stage">
+    <option value="">All stages</option>
+    <% for (const stage of stages) { %><option value="<%= stage.key %>" <%= query.stage === stage.key ? 'selected' : '' %>><%= stage.name %></option><% } %>
+  </select>
+  <input class="form-input max-w-40 !py-2" name="county" value="<%= query.county ?? '' %>" placeholder="County">
+  <button class="btn-outline !py-2">Filter</button>
+</form>
+<div class="card mt-4 overflow-x-auto !p-0">
+  <table class="min-w-full divide-y divide-navy-100">
+    <thead><tr>
+      <th class="table-th">Case #</th><th class="table-th">Stage</th><th class="table-th">County</th>
+      <th class="table-th">Property</th><th class="table-th text-right">Est. Surplus</th>
+      <th class="table-th text-right">Verified</th><th class="table-th">Assigned</th>
+    </tr></thead>
+    <tbody class="divide-y divide-navy-50">
+      <% if (!cases.length) { %><tr><td colspan="7" class="table-td py-8 text-center text-navy-400">No cases found.</td></tr><% } %>
+      <% for (const caseRow of cases) { %>
+        <tr class="hover:bg-navy-50/50">
+          <td class="table-td font-mono"><a class="underline" href="/portal/cases/<%= caseRow.id %>"><%= caseRow.case_number %></a></td>
+          <td class="table-td"><span class="badge bg-navy-100 text-navy-700"><%= caseRow.stage_name %></span></td>
+          <td class="table-td"><%= caseRow.county %></td>
+          <td class="table-td"><%= (caseRow.address_line1 ?? '').slice(0, 35) %></td>
+          <td class="table-td text-right"><%= caseRow.estimated_surplus ? '$' + Number(caseRow.estimated_surplus).toLocaleString('en-US', {minimumFractionDigits: 2}) : '—' %></td>
+          <td class="table-td text-right"><%= caseRow.verified_surplus ? '$' + Number(caseRow.verified_surplus).toLocaleString('en-US', {minimumFractionDigits: 2}) : '—' %></td>
+          <td class="table-td"><%= caseRow.assignee_name ?? '' %></td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+<div class="mt-4 flex gap-2">
+  <% if (page > 1) { %><a class="btn-outline !px-3 !py-1.5" href="?page=<%= page - 1 %>">← Prev</a><% } %>
+  <% if (cases.length === perPage) { %><a class="btn-outline !px-3 !py-1.5" href="?page=<%= page + 1 %>">Next →</a><% } %>
+</div>
+<%- include('../../partials/portal-bottom') %>

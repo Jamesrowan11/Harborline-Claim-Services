@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 #
-# Harborline production deploy script for Plesk.
+# Harborline production deploy script for Plesk Node.js hosting.
 # Usage: bash deploy/deploy.sh [--first-run] [--skip-migrations]
+# After it finishes, click "Restart App" in Plesk -> Node.js
+# (or: mkdir -p tmp && touch tmp/restart.txt).
 #
 set -euo pipefail
-
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$APP_DIR"
 
-FIRST_RUN=false
-SKIP_MIGRATIONS=false
+FIRST_RUN=false; SKIP_MIGRATIONS=false
 for arg in "$@"; do
   case "$arg" in
     --first-run) FIRST_RUN=true ;;
@@ -19,58 +19,45 @@ done
 
 echo "==> Deploying in $APP_DIR"
 
-[ -f .env ] || { echo "ERROR: .env missing. Copy .env.example and configure it first."; exit 1; }
-grep -q '^APP_KEY=base64' .env || { echo "ERROR: APP_KEY not set. Run: php artisan key:generate"; exit 1; }
+if [ ! -f .env ] && [ -z "${APP_KEY:-}" ]; then
+  echo "WARNING: no .env file found — make sure environment variables are set in the Plesk Node.js panel."
+fi
 
-echo "==> Installing PHP dependencies"
-composer install --no-dev --optimize-autoloader --no-interaction
-
-echo "==> Building frontend assets"
+echo "==> Installing dependencies (including dev, for the CSS build)"
 npm ci --no-audit --no-fund
-npm run build
+
+echo "==> Building stylesheet"
+npm run build:css
+
+echo "==> Pruning dev dependencies"
+npm prune --omit=dev --no-audit --no-fund
 
 if [ "$SKIP_MIGRATIONS" = false ]; then
   echo "==> Running database migrations"
-  php artisan migrate --force
+  node src/cli.js migrate
   if [ "$FIRST_RUN" = true ]; then
     echo "==> Seeding baseline data (roles, stages, templates, automations)"
-    php artisan db:seed --force
+    node src/cli.js seed
   fi
 else
   echo "==> Skipping migrations (--skip-migrations)"
 fi
 
-echo "==> Storage link"
-php artisan storage:link || true
+echo "==> Checking writable folders"
+mkdir -p storage/app/private-documents storage/logs tmp
+chmod -R u+rwX storage tmp
 
-echo "==> Clearing and rebuilding caches"
-php artisan optimize:clear
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-php artisan event:cache
+echo "==> Requesting Passenger restart"
+touch tmp/restart.txt
 
-echo "==> Restarting queue workers"
-php artisan queue:restart
-
-echo "==> Checking file permissions"
-for dir in storage bootstrap/cache; do
-  if [ ! -w "$dir" ]; then
-    echo "    fixing permissions on $dir"
-    chmod -R u+rwX,g+rwX "$dir"
-  fi
-done
-mkdir -p storage/app/private-documents
-chmod -R u+rwX,g+rwX storage/app/private-documents
-
-echo "==> Health check"
-php artisan about --only=environment | head -5
-if command -v curl >/dev/null && grep -q '^APP_URL=' .env; then
+echo "==> Health check (after restart the app may need a few seconds)"
+if [ -f .env ] && grep -q '^APP_URL=' .env; then
   APP_URL="$(grep '^APP_URL=' .env | cut -d= -f2)"
+  sleep 3
   if curl -fsS --max-time 10 "$APP_URL/up" >/dev/null 2>&1; then
     echo "    $APP_URL/up -> OK"
   else
-    echo "    WARNING: health endpoint $APP_URL/up not reachable from this shell (may be fine behind proxy)"
+    echo "    NOTE: $APP_URL/up not reachable from this shell; verify in a browser."
   fi
 fi
 

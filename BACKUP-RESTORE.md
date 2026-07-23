@@ -35,7 +35,7 @@ mysqldump --single-transaction harborline | gzip > ~/backups/harborline-$(date +
 
 ## Restore procedure
 
-1. Put the site into maintenance: `php artisan down`.
+1. Stop the Node.js app in Plesk (Websites & Domains → Node.js → Stop App).
 2. **Files**: restore via Plesk Backup Manager (or extract the archive into
    the vhost), confirming `storage/app/private-documents` is intact.
 3. **Database**: restore the matching backup:
@@ -46,13 +46,12 @@ mysqldump --single-transaction harborline | gzip > ~/backups/harborline-$(date +
    zcat harborline-YYYYMMDD.sql.gz | mysql harborline
    ```
 4. Verify `.env` matches the restored environment (APP_KEY especially — the
-   original APP_KEY is REQUIRED to read encrypted fields and documents
-   metadata; losing it loses encrypted data).
-5. `php artisan optimize:clear && php artisan migrate --force`
-6. Restart workers: `php artisan queue:restart` (and systemd service if used).
+   original APP_KEY is REQUIRED to read encrypted fields; losing it loses encrypted data).
+5. `node src/cli.js migrate`
+6. Restart the app in the Plesk Node.js panel (worker and scheduler restart with it).
 7. Health check: `curl -fsS https://example.com/up`.
 8. Spot-check: log in, open a case, download a document, run a report.
-9. `php artisan up`.
+9. Start the app again in the Plesk Node.js panel.
 
 ## Disaster recovery notes
 

@@ -40,7 +40,7 @@ counsel outside the system.
 ### Retention
 Per-record-type retention: months to retain, then review / anonymize /
 delete. Policies ship inactive. Records under legal hold are never touched.
-`php artisan hcs:enforce-retention --dry-run` previews effects.
+`node src/cli.js retention --dry-run` previews effects.
 
 ## Automation Center
 See AUTOMATIONS.md. Key rules: new automations start in draft; use test mode

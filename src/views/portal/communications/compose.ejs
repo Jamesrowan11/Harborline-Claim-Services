@@ -1,0 +1,33 @@
+<%- include('../../partials/portal-top', { title: 'Compose Communication' }) %>
+<h1 class="font-serif text-2xl font-bold">Compose from Template</h1>
+<p class="mt-2 max-w-2xl text-sm text-navy-500">Communications are always created as drafts, require approval, and pass the outreach compliance gate (approved template, consent, no opt-out, verification level, frequency limits, no holds) before delivery.</p>
+<form method="get" class="card mt-6 max-w-2xl space-y-4">
+  <div><label class="form-label">Case ID</label><input class="form-input" type="number" name="case_id" value="<%= query.case_id ?? '' %>" required></div>
+  <div><label class="form-label">Template</label>
+    <select class="form-input" name="template_id">
+      <% for (const template of templates) { %>
+        <option value="<%= template.id %>" <%= Number(query.template_id) === template.id ? 'selected' : '' %>>
+          [<%= template.category %>] <%= template.name %> <%= template.approval_status === 'approved' ? '' : '(NOT APPROVED)' %>
+        </option>
+      <% } %>
+    </select></div>
+  <button class="btn-outline !py-2">Preview</button>
+</form>
+<% if (preview && caseRow) { %>
+  <div class="card mt-6 max-w-2xl">
+    <h2 class="font-serif text-lg font-bold">Preview for <%= caseRow.case_number %></h2>
+    <p class="mt-2 text-sm font-semibold"><%= preview.subject %></p>
+    <pre class="mt-2 whitespace-pre-wrap rounded bg-navy-50 p-4 font-sans text-sm"><%= preview.body %></pre>
+    <form method="post" action="/portal/communications" class="mt-4 flex items-end gap-3">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <input type="hidden" name="case_id" value="<%= caseRow.id %>">
+      <input type="hidden" name="template_id" value="<%= query.template_id %>">
+      <div><label class="form-label text-xs">Channel</label>
+        <select class="form-input !py-1.5" name="channel">
+          <option value="email">email</option><option value="letter">letter</option><option value="sms">sms</option>
+        </select></div>
+      <button class="btn-primary !py-2">Create Draft</button>
+    </form>
+  </div>
+<% } %>
+<%- include('../../partials/portal-bottom') %>

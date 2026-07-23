@@ -1,0 +1,34 @@
+<%- include('../../partials/portal-top', { title: 'Document Center' }) %>
+<h1 class="font-serif text-2xl font-bold">Document Center</h1>
+<form class="no-print mt-4 flex gap-3" method="get">
+  <select class="form-input max-w-44 !py-2" name="status">
+    <option value="">All statuses</option>
+    <% for (const status of ['pending', 'approved', 'rejected']) { %><option value="<%= status %>" <%= query.status === status ? 'selected' : '' %>><%= status %></option><% } %>
+  </select>
+  <button class="btn-outline !py-2">Filter</button>
+</form>
+<div class="card mt-4 overflow-x-auto !p-0">
+  <table class="min-w-full divide-y divide-navy-100">
+    <thead><tr><th class="table-th">Title</th><th class="table-th">Case</th><th class="table-th">Category</th><th class="table-th">Status</th><th class="table-th">Scan</th><th class="table-th">Uploaded</th><th class="table-th"></th></tr></thead>
+    <tbody class="divide-y divide-navy-50">
+      <% if (!documents.length) { %><tr><td colspan="7" class="table-td py-8 text-center text-navy-400">No documents.</td></tr><% } %>
+      <% for (const document of documents) { %>
+        <tr>
+          <td class="table-td"><%= document.title %></td>
+          <td class="table-td font-mono text-xs"><% if (document.case_number) { %><a class="underline" href="/portal/cases/<%= document.case_id %>"><%= document.case_number %></a><% } %></td>
+          <td class="table-td"><%= document.category %></td>
+          <td class="table-td"><span class="badge bg-navy-100"><%= document.status %></span></td>
+          <td class="table-td"><%= document.virus_scan_status %></td>
+          <td class="table-td"><%= new Date(document.created_at).toLocaleDateString() %></td>
+          <td class="table-td space-x-2">
+            <% if (can('documents.download')) { %><a class="underline" href="/portal/documents/<%= document.id %>/download">Download</a><% } %>
+            <% if (document.status === 'pending' && can('documents.approve')) { %>
+              <form class="inline" method="post" action="/portal/documents/<%= document.id %>/review"><input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="status" value="approved"><button class="underline">Approve</button></form>
+            <% } %>
+          </td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/portal-bottom') %>

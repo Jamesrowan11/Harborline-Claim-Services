@@ -1,0 +1,20 @@
+<%- include('../../partials/portal-top', { title: 'Pipeline Stages' }) %>
+<h1 class="font-serif text-2xl font-bold">Pipeline Stages</h1>
+<p class="mt-2 text-sm text-navy-500">Internal names and client-facing labels are both editable. The client label is the only thing claimants ever see.</p>
+<div class="mt-4 space-y-2">
+  <% for (const stage of stages) { %>
+    <form method="post" action="/portal/admin/stages/<%= stage.id %>" class="card flex flex-wrap items-end gap-3 !py-3">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <div><label class="form-label text-xs">Order</label><input class="form-input !w-20 !py-1" type="number" name="sort_order" value="<%= stage.sort_order %>"></div>
+      <div class="flex-1"><label class="form-label text-xs">Internal name</label><input class="form-input !py-1" name="name" value="<%= stage.name %>"></div>
+      <div class="flex-1"><label class="form-label text-xs">Client label</label><input class="form-input !py-1" name="client_label" value="<%= stage.client_label %>"></div>
+      <span class="pb-2 text-xs text-navy-400">
+        <%= stage.is_closed ? 'closed' : '' %> <%= stage.is_hold ? 'hold' : '' %>
+        <%= stage.requires_compliance_review ? 'compliance' : '' %> <%= stage.requires_attorney_review ? 'attorney' : '' %>
+      </span>
+      <label class="flex items-center gap-1 pb-2 text-xs"><input type="checkbox" name="active" value="1" <%= stage.active ? 'checked' : '' %>> active</label>
+      <button class="btn-outline !px-3 !py-1.5 text-sm">Save</button>
+    </form>
+  <% } %>
+</div>
+<%- include('../../partials/portal-bottom') %>

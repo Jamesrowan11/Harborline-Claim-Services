@@ -1,39 +1,43 @@
-# Plesk Deployment Guide (Plesk Obsidian, Ubuntu, Nginx)
+# Plesk Deployment Guide — Node.js (Plesk Obsidian, Ubuntu, Nginx)
 
-This application is built to run reliably on an AWS-hosted Ubuntu server with
-Plesk Obsidian, Nginx as the reverse proxy (Apache optionally behind it),
-Let's Encrypt SSL, Plesk databases, Plesk scheduled tasks, and Plesk backups.
-Docker is **not** required.
+This application is a **Node.js app** built specifically for Plesk's Node.js
+hosting (Phusion Passenger behind nginx). No Docker, no PHP.
 
 ---
 
-## 1. Required PHP (8.3+) extensions
+## 1. Requirements
 
-Enable in **Plesk → Tools & Settings → PHP Settings** (or via
-`plesk bin php_handler`), for the PHP 8.3 (or newer) FPM handler:
+- Plesk Obsidian with the **Node.js extension** installed
+  (Tools & Settings → Updates → Add/Remove Components → Node.js support).
+- Node.js **20 or newer** selected for the domain.
+- PostgreSQL 16 **or** MySQL 8 available in Plesk.
 
-`bcmath ctype curl dom fileinfo filter gd iconv intl json libxml mbstring
-openssl pcre pdo pdo_pgsql (or pdo_mysql) session simplexml tokenizer xml
-xmlwriter zip` — plus `redis` if you enable Redis, and `posix pcntl` for
-Horizon.
+## 2. Create the domain and enable Node.js
 
-## 2. Create the domain and document root
+1. **Websites & Domains → Add Domain** (e.g. `example.com`).
+2. Open the domain → **Node.js** and set:
 
-1. **Plesk → Websites & Domains → Add Domain** (e.g. `example.com`).
-2. Set **Hosting Settings → Document root** to `httpdocs/public`
-   (you will deploy the repository into `httpdocs`, so `/public` is the only
-   web-exposed directory — this is essential; the app root must never be
-   web-served).
-3. **PHP Settings**: PHP 8.3 FPM served by Nginx; `memory_limit=512M`,
-   `upload_max_filesize=25M`, `post_max_size=26M`, `max_execution_time=120`.
+| Setting | Value |
+|---|---|
+| Node.js version | 20+ (latest available) |
+| Document Root | `/httpdocs/public` |
+| Application Mode | `production` |
+| **Application Root** | `/httpdocs` |
+| **Application Startup File** | **`server.js`** |
+
+`server.js` is the application startup file — it starts the web server, the
+in-app scheduler (daily scans, retention, hourly automation tick), and the
+job-queue worker in one process. **No separate cron jobs or workers are
+required** — this is all built in.
+
+The Document Root points at `public/` so only static assets are ever served
+directly; everything else flows through the app.
 
 ## 3. Get the code onto the server
 
-Use Plesk's Git extension (recommended) or SFTP:
-
-- **Plesk → Websites & Domains → Git** → add this repository, deploy to
-  `/httpdocs`, deployment mode "Manual" (you will run the deploy script after
-  each pull).
+Use Plesk's **Git** extension (recommended): add this repository, deploy to
+`/httpdocs`, deployment mode "Manual", and run the deploy steps (§6) after
+each pull. SFTP upload works too.
 
 ## 4. Database setup
 
@@ -46,194 +50,140 @@ No schema import is needed — migrations create everything.
 
 ## 5. Environment variables
 
+Two options (both work; the Plesk UI is often easier):
+
+**Option A — Plesk UI:** Domain → Node.js → **Environment Variables**. Add
+every variable from `.env.example` you need (at minimum: `NODE_ENV`,
+`APP_URL`, `APP_KEY`, `DB_*`, `MAIL_*`).
+
+**Option B — `.env` file** in the application root (the app loads it via
+dotenv; it is gitignored):
+
 ```bash
 cd /var/www/vhosts/example.com/httpdocs
 cp .env.example .env
-php artisan key:generate
+node src/cli.js key:generate   # paste the output into .env as APP_KEY
 ```
 
-Then edit `.env` (never commit it; it is gitignored):
+Key values:
 
-- `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://example.com`
+- `NODE_ENV=production`, `APP_URL=https://example.com`
+- `APP_KEY` — required; encrypts MFA secrets and sensitive fields. Store a
+  copy in a password manager: losing it loses encrypted data.
 - `DB_*` from step 4
-- `MAIL_*` — Plesk's local mail service or an external SMTP provider
-- `BRAND_*` values (or set them later in Administration → Settings)
+- `MAIL_*` — Plesk's local mail service, your email provider's SMTP, or a
+  transactional service (Amazon SES recommended for deliverability)
 - Leave `SMS_ENABLED=false` until counsel approves SMS outreach
-
-If Redis is installed, prefer `CACHE_STORE=redis`, `QUEUE_CONNECTION=redis`,
-and install Horizon (`composer require laravel/horizon`) for queue monitoring.
 
 ## 6. First deployment
 
-```bash
-cd /var/www/vhosts/example.com/httpdocs
-bash deploy/deploy.sh --first-run
-```
-
-The script runs composer/npm builds, migrations, storage link, caches,
-permission checks, and a health check (see §14). On the first run it also
-seeds roles, pipeline stages, templates, and default (inactive) automations —
-without demo data when `APP_ENV=production`.
-
-Create your first administrator:
-
-```bash
-php artisan tinker --execute="
-\$u = App\Models\User::create(['name' => 'Your Name', 'email' => 'you@example.com', 'password' => 'CHANGE-ME-NOW-123', 'user_type' => 'staff']);
-\$u->assignRole('Super Administrator');
-"
-```
-
-Sign in, complete MFA enrollment, then immediately change the password via
-the reset flow.
-
-## 7. Writable folders
-
-The web server user (`psacln`/subscription system user) must be able to write:
-
-- `storage/` (all subdirectories, including `storage/app/private-documents`)
-- `bootstrap/cache/`
-
-`deploy/deploy.sh` verifies and fixes these:
-`chmod -R u+rwX,g+rwX storage bootstrap/cache`.
-
-## 8. Queue worker
-
-Queues default to the `database` driver. Two supported options:
-
-**Option A — Plesk Scheduled Task keep-alive (simplest).**
-Add a task (see §9) running every minute:
-
-```
-php /var/www/vhosts/example.com/httpdocs/artisan queue:work --stop-when-empty --max-time=50 --tries=3
-```
-
-**Option B — long-running worker via systemd (recommended for volume).**
-Copy `deploy/harborline-queue.service` to `/etc/systemd/system/`, adjust the
-path and user, then:
-
-```bash
-systemctl daemon-reload && systemctl enable --now harborline-queue
-```
-
-With Redis + Horizon, run `php artisan horizon` in the service instead and use
-`php artisan horizon:terminate` on deploy.
-
-## 9. Plesk scheduled tasks
-
-**Plesk → Tools & Settings → Scheduled Tasks** (run as the subscription's
-system user). One task is mandatory:
-
-| Schedule | Command |
-|---|---|
-| `* * * * *` | `php /var/www/vhosts/example.com/httpdocs/artisan schedule:run >> /dev/null 2>&1` |
-
-The in-app scheduler then handles: daily scans (06:00), retention enforcement
-(02:30), queue pruning, and hourly automation ticks. If you chose queue
-Option A, add that task too.
-
-## 10. SSL
-
-**Plesk → Websites & Domains → SSL/TLS Certificates → Install a free Let's
-Encrypt certificate**, covering the domain and `www`. Enable:
-
-- "Redirect from HTTP to HTTPS" (Hosting Settings)
-- Auto-renewal (default with the Let's Encrypt extension)
-
-The app sends HSTS and secure-cookie headers automatically when serving HTTPS.
-
-## 11. Nginx directives (if needed)
-
-Plesk's default Laravel handling usually suffices because the document root is
-`/public`. If you need explicit rules, paste `deploy/nginx-directives.conf`
-into **Apache & nginx Settings → Additional nginx directives**.
-
-## 12. Apache directives (if Apache runs behind Nginx)
-
-`public/.htaccess` ships with the application and handles rewrites. If you
-manage directives centrally, use `deploy/apache-directives.conf` in
-**Apache & nginx Settings → Additional directives for HTTP/HTTPS**.
-
-## 13. Storage link
-
-`php artisan storage:link` (run automatically by the deploy script) links
-`public/storage` → `storage/app/public`. Client documents deliberately do
-**not** live there — they are stored on the non-public `private` disk
-(`storage/app/private-documents`) and are only served through authenticated,
-policy-checked download routes.
-
-## 14. Routine deployments, cache and optimization
-
-Every code update:
+SSH into the server (or use Plesk's "Run script" in the Node.js panel):
 
 ```bash
 cd /var/www/vhosts/example.com/httpdocs
-git pull            # or Plesk Git "Pull now"
-bash deploy/deploy.sh
+npm ci --omit=dev                # install production dependencies
+npm run build:css                # compile the stylesheet (needs devDeps: use `npm ci` without --omit=dev the first time, or build locally and commit nothing — see note)
+node src/cli.js migrate          # create all tables
+node src/cli.js seed             # roles, pipeline stages, templates, default automations
+node src/cli.js create-admin you@example.com "Your Name" "a-strong-temporary-password"
 ```
 
-The script performs: `composer install --no-dev --optimize-autoloader`,
-`npm ci`, `npm run build`, `php artisan migrate --force`, storage link,
-`config:cache`, `route:cache`, `view:cache`, `event:cache`,
-`queue:restart`, permission checks, and a health check against `/up`.
+> **CSS note:** `npm run build:css` requires dev dependencies. Either run
+> plain `npm ci` (installs both) or build `public/assets/app.css` on your
+> machine and upload it. The deploy script (§7) handles this automatically.
 
-Manual cache commands when needed:
+Then in Plesk → Node.js click **Restart App**. Sign in, complete MFA
+enrollment, and change your password via the reset flow.
+
+Never seed demo data (`seed:demo`) in production.
+
+## 7. Routine deployments
 
 ```bash
-php artisan optimize:clear   # clear config/route/view/event caches
-php artisan optimize         # rebuild them
+cd /var/www/vhosts/example.com/httpdocs
+git pull                         # or Plesk Git "Pull now"
+bash deploy/deploy.sh            # npm ci, css build, migrate, permission checks
 ```
 
-## 15. Backups
+Then **Restart App** in the Plesk Node.js panel (or `touch tmp/restart.txt`,
+which Passenger watches). The deploy script performs: dependency install,
+CSS build, database migrations, storage-folder checks, and a health check.
 
-Use **Plesk → Backup & Restore Manager** on a daily schedule, storing to
-remote storage (S3/FTP), including databases and files. Details and the
-what-must-be-backed-up list: [BACKUP-RESTORE.md](BACKUP-RESTORE.md).
+## 8. Scheduler and queue worker
 
-## 16. Restore
+Nothing to configure. `server.js` runs them in-process:
 
-Full procedure in [BACKUP-RESTORE.md](BACKUP-RESTORE.md). Short version:
-restore files + database from the same backup set, re-check `.env`, run
-`php artisan optimize:clear && php artisan migrate --force`, restart the queue
-worker, verify `/up`.
+- **Queue worker** — polls the jobs table every 15 seconds (outbound email/SMS deliveries, 3 retries with backoff).
+- **Daily scans** — 06:00 server time (deadlines, overdue tasks, stale sources, inactivity, expired verifications).
+- **Retention enforcement** — 02:30 daily (never touches legal holds).
+- **Automation tick** — hourly `schedule.tick` event for scheduled automations.
 
-## 17. Upgrade and rollback
+If you prefer external control, you can also run these manually:
+`node src/cli.js scans` and `node src/cli.js retention [--dry-run]`.
 
-**Upgrade**
+## 9. SSL
 
-1. `php artisan down --retry=60 --secret="maintenance-bypass-TOKEN"`
-2. Take an on-demand Plesk backup (files + DB).
-3. `git pull && bash deploy/deploy.sh`
-4. `php artisan up`
+**Websites & Domains → SSL/TLS Certificates → Install a free Let's Encrypt
+certificate** covering the domain and `www`. Enable "Redirect from HTTP to
+HTTPS". The app sends HSTS and secure-cookie headers automatically when
+`NODE_ENV=production`.
 
-**Rollback**
+## 10. Writable folders
 
-1. `php artisan down`
-2. `git checkout <previous-tag-or-commit>`
-3. `bash deploy/deploy.sh --skip-migrations` (never run newer migrations
-   backwards; restore the DB from the pre-upgrade backup if a migration must
-   be undone)
-4. `php artisan up`
+The subscription's system user must be able to write:
 
-Tag every production release (`git tag prod-YYYYMMDD`) so rollback targets
-are unambiguous.
+- `storage/` (private documents, logs, SQLite in dev)
+- `.env` (if using Option B)
 
-## 18. Production troubleshooting
+`deploy/deploy.sh` verifies these. Client documents live in
+`storage/app/private-documents/` — outside the document root, never
+web-served, downloadable only through authenticated, policy-checked routes.
+
+## 11. Nginx directives (optional)
+
+Plesk's Node.js hosting proxies everything automatically. If you want static
+asset caching, paste `deploy/nginx-directives.conf` into **Apache & nginx
+Settings → Additional nginx directives**.
+
+## 12. Backups
+
+**Plesk → Backup & Restore Manager**: daily schedule, remote storage
+(S3/FTP), password-protected archives, including databases and files.
+Details: [BACKUP-RESTORE.md](BACKUP-RESTORE.md). `APP_KEY` (from `.env` or
+the Plesk environment-variable panel) is part of your backup — store it in a
+secrets manager too.
+
+## 13. Restore
+
+Short version (full procedure in BACKUP-RESTORE.md): restore files + DB from
+the same backup set, confirm `.env`/environment variables (especially
+`APP_KEY`), run `node src/cli.js migrate`, Restart App, check `/up`.
+
+## 14. Upgrade and rollback
+
+**Upgrade:** take an on-demand backup → `git pull` →
+`bash deploy/deploy.sh` → Restart App → verify `/up` and a test login.
+
+**Rollback:** `git checkout <previous-tag>` →
+`bash deploy/deploy.sh --skip-migrations` → Restart App. Never run newer
+migrations backwards; restore the DB from the pre-upgrade backup if a
+migration must be undone. Tag every release: `git tag prod-YYYYMMDD`.
+
+## 15. Production troubleshooting
 
 | Symptom | Likely cause / fix |
 |---|---|
-| 500 with blank page | `APP_KEY` missing → `php artisan key:generate`; check `storage/logs/laravel.log` |
-| 403/404 on every page | Document root not pointing at `/public` |
-| Styles/JS missing | `npm run build` not run, or `public/build` not deployed |
-| "Permission denied" in logs | Re-run §7 permission fixes; confirm PHP-FPM user matches file owner |
-| Emails not sending | Check `MAIL_*`; try `php artisan tinker` → `Mail::raw('test', fn ($m) => $m->to('you@example.com')->subject('test'));` |
-| Queued jobs never run | `schedule:run` cron missing (§9) or worker dead (§8); check `php artisan queue:failed` |
-| Scheduled automations not firing | Same as above — the scheduler cron is mandatory |
-| Uploads fail at ~2 MB | Raise `upload_max_filesize`/`post_max_size` in Plesk PHP settings |
-| Session logouts after deploy | `SESSION_DRIVER=database` requires the sessions table (migrations); don't cache config with a stale `.env` |
-| Health check | `curl -fsS https://example.com/up` returns 200 when the app boots |
-| Emergency: stop all automations | Administration → Automation Center → EMERGENCY STOP, or set `AUTOMATION_GLOBAL_STOP=true` in `.env` + `php artisan config:cache` |
+| App won't start / 503 | Check Plesk → Node.js → the app log (Passenger shows startup errors); usually a missing env var (`APP_KEY`) or DB connection failure |
+| "APP_KEY is not set" | Generate with `node src/cli.js key:generate`, set it, Restart App |
+| Styles missing | `public/assets/app.css` not built — run `npm run build:css` |
+| DB connection refused | `DB_*` values wrong, or the DB user lacks access from localhost |
+| Emails not sending | Check `MAIL_*`; with `MAIL_MAILER=log`, mail goes to `storage/logs/mail.log` (useful for testing) |
+| Queued jobs stuck | Check the `jobs` table for `failed` rows and `last_error`; the worker runs inside the app process, so a stopped app = stopped worker |
+| Scheduled tasks not firing | Same — they run inside `server.js`; make sure the app has been running continuously (Passenger may idle-stop apps: set "Application Mode: production" and consider Passenger's min instances) |
+| Uploads fail | File type not in the allowed list (PDF/JPG/PNG/HEIC/DOC/DOCX) or over `MAX_UPLOAD_MB` |
+| Health check | `curl -fsS https://example.com/up` returns `{"ok":true}` |
+| Emergency: stop all automations | Portal → Automation Center → EMERGENCY STOP, or set env `AUTOMATION_GLOBAL_STOP=true` + Restart App |
 
-Logs: `storage/logs/laravel.log` (daily rotation), Plesk → Logs for
-Nginx/PHP-FPM errors. In production `APP_DEBUG` must stay `false` — errors are
-masked for visitors and detailed only in logs.
+Logs: Plesk → Node.js panel shows the application log;
+`storage/logs/mail.log` and `sms.log` capture log-driver deliveries. In
+production, error details are never shown to visitors — only logged.

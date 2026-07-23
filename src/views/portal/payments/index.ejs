@@ -1,0 +1,39 @@
+<%- include('../../partials/portal-top', { title: 'Payments' }) %>
+<% const money = (v) => '$' + Number(v ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 }); %>
+<h1 class="font-serif text-2xl font-bold">Payments</h1>
+<div class="mt-4 grid gap-4 sm:grid-cols-4">
+  <% for (const [type, label] of [['funds_received', 'Funds Received'], ['client_distribution', 'Client Distributions'], ['company_fee', 'Company Fees'], ['refund', 'Refunds']]) { %>
+    <div class="card"><p class="text-xs font-semibold uppercase text-navy-400"><%= label %></p>
+      <p class="mt-1 font-serif text-xl font-bold"><%= money(totals[type]) %></p></div>
+  <% } %>
+</div>
+<form class="no-print mt-4 flex flex-wrap gap-3" method="get">
+  <select class="form-input max-w-52 !py-2" name="type">
+    <option value="">All types</option>
+    <% for (const type of ['funds_received', 'client_distribution', 'company_fee', 'refund']) { %>
+      <option value="<%= type %>" <%= query.type === type ? 'selected' : '' %>><%= type.replaceAll('_', ' ') %></option><% } %>
+  </select>
+  <input class="form-input !py-2" type="date" name="from" value="<%= query.from ?? '' %>">
+  <input class="form-input !py-2" type="date" name="to" value="<%= query.to ?? '' %>">
+  <button class="btn-outline !py-2">Filter</button>
+</form>
+<div class="card mt-4 overflow-x-auto !p-0">
+  <table class="min-w-full divide-y divide-navy-100">
+    <thead><tr><th class="table-th">Date</th><th class="table-th">Case</th><th class="table-th">Type</th><th class="table-th text-right">Amount</th><th class="table-th">Method</th><th class="table-th">Reference</th><th class="table-th">Recorded by</th></tr></thead>
+    <tbody class="divide-y divide-navy-50">
+      <% if (!payments.length) { %><tr><td colspan="7" class="table-td py-8 text-center text-navy-400">No payments recorded.</td></tr><% } %>
+      <% for (const payment of payments) { %>
+        <tr>
+          <td class="table-td"><%= new Date(payment.occurred_on).toLocaleDateString() %></td>
+          <td class="table-td font-mono text-xs"><a class="underline" href="/portal/cases/<%= payment.case_id %>"><%= payment.case_number %></a></td>
+          <td class="table-td"><%= payment.payment_type.replaceAll('_', ' ') %></td>
+          <td class="table-td text-right font-semibold"><%= money(payment.amount) %></td>
+          <td class="table-td"><%= payment.method ?? '' %></td>
+          <td class="table-td"><%= payment.reference ?? '' %></td>
+          <td class="table-td"><%= payment.recorder_name ?? '' %></td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+<%- include('../../partials/portal-bottom') %>

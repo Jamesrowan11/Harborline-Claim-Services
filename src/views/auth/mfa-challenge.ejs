@@ -1,0 +1,14 @@
+<%- include('../partials/site-top', { title: 'Two-Factor Check' }) %>
+<div class="mx-auto max-w-md px-4 py-16">
+  <div class="card">
+    <h1 class="font-serif text-2xl font-bold">Two-Factor Check</h1>
+    <p class="mt-2 text-sm text-navy-500">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</p>
+    <form method="post" action="/mfa/challenge" class="mt-6 space-y-4">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <div><label class="form-label" for="code">Code</label>
+        <input class="form-input" type="text" id="code" name="code" required autocomplete="one-time-code" autofocus></div>
+      <button type="submit" class="btn-primary w-full">Verify</button>
+    </form>
+  </div>
+</div>
+<%- include('../partials/site-bottom') %>

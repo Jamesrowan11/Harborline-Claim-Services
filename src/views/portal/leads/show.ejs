@@ -1,0 +1,91 @@
+<%- include('../../partials/portal-top', { title: lead.lead_number }) %>
+<div class="flex flex-wrap items-center justify-between gap-3">
+  <h1 class="font-serif text-2xl font-bold"><%= lead.lead_number %> <span class="badge ml-2 bg-navy-100 text-navy-700"><%= lead.status %></span></h1>
+  <div class="flex gap-2">
+    <% if (lead.status !== 'converted' && can('cases.create')) { %>
+      <form method="post" action="/portal/leads/<%= lead.id %>/convert"><input type="hidden" name="_csrf" value="<%= csrf %>"><button class="btn-primary !py-2">Convert to Case</button></form>
+    <% } else if (linkedCase) { %>
+      <a href="/portal/cases/<%= linkedCase.id %>" class="btn-outline !py-2">Open Case <%= linkedCase.case_number %></a>
+    <% } %>
+  </div>
+</div>
+<div class="mt-6 grid gap-6 lg:grid-cols-3">
+  <div class="card lg:col-span-2">
+    <h2 class="font-serif text-lg font-bold">Inquiry Details</h2>
+    <dl class="mt-4 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+      <% const fields = [
+        ['Name', [lead.first_name, lead.middle_name, lead.last_name].filter(Boolean).join(' ')],
+        ['Former owner', lead.former_owner_name], ['Relationship', lead.relationship_to_owner],
+        ['Owner living?', lead.former_owner_living === null ? '—' : (lead.former_owner_living ? 'Yes' : 'No')],
+        ['Property', lead.property_address], ['County', `${lead.property_county ?? ''}, ${lead.property_state ?? ''}`],
+        ['Approx. sale date', lead.approximate_sale_date], ['Court case #', lead.court_case_number],
+        ['Parcel #', lead.parcel_number], ['Tax account #', lead.tax_account_number],
+        ['Email', lead.email], ['Phone', lead.phone],
+        ['Preferred contact', lead.preferred_contact_method], ['Source', lead.source],
+      ]; %>
+      <% for (const [label, value] of fields) { %>
+        <div><dt class="font-semibold text-navy-500"><%= label %></dt><dd><%= value || '—' %></dd></div>
+      <% } %>
+    </dl>
+    <% if (lead.description) { %><p class="mt-4 rounded bg-navy-50 p-3 text-sm"><%= lead.description %></p><% } %>
+    <h3 class="mt-5 font-serif font-bold">Consents</h3>
+    <ul class="mt-2 flex flex-wrap gap-2 text-xs">
+      <% for (const consent of consents) { %>
+        <li class="badge <%= consent.granted ? 'bg-gold-100 text-gold-800' : 'bg-navy-100 text-navy-500' %>">
+          <%= consent.consent_type %>: <%= consent.granted ? 'granted' : 'declined' %></li>
+      <% } %>
+    </ul>
+  </div>
+  <div class="space-y-6">
+    <div class="card">
+      <h2 class="font-serif text-lg font-bold">Assignment</h2>
+      <form method="post" action="/portal/leads/<%= lead.id %>" class="mt-3 space-y-3">
+        <input type="hidden" name="_csrf" value="<%= csrf %>"><input type="hidden" name="_method" value="PUT">
+        <select class="form-input" name="assigned_to">
+          <option value="">Unassigned</option>
+          <% for (const member of staff) { %><option value="<%= member.id %>" <%= lead.assigned_to === member.id ? 'selected' : '' %>><%= member.name %></option><% } %>
+        </select>
+        <select class="form-input" name="status">
+          <% for (const status of ['new', 'screening', 'duplicate', 'converted', 'closed']) { %>
+            <option value="<%= status %>" <%= lead.status === status ? 'selected' : '' %>><%= status %></option>
+          <% } %>
+        </select>
+        <button class="btn-outline !py-2 w-full">Save</button>
+      </form>
+    </div>
+    <% if (duplicates.length) { %>
+      <div class="card border-l-4 border-l-burgundy-600">
+        <h2 class="font-serif text-lg font-bold">Possible Duplicates</h2>
+        <ul class="mt-2 space-y-2 text-sm">
+          <% for (const dup of duplicates) { %>
+            <li><span class="font-mono"><%= dup.record.lead_number ?? dup.record.case_number %></span>
+              <span class="text-navy-500">— <%= dup.reason %></span>
+              <% if (dup.type === 'lead') { %>
+                <form method="post" action="/portal/leads/<%= lead.id %>/mark-duplicate" class="mt-1 inline">
+                  <input type="hidden" name="_csrf" value="<%= csrf %>">
+                  <input type="hidden" name="duplicate_of_lead_id" value="<%= dup.record.id %>">
+                  <button class="text-xs underline">Mark this lead as duplicate</button>
+                </form>
+              <% } %>
+            </li>
+          <% } %>
+        </ul>
+      </div>
+    <% } %>
+    <div class="card">
+      <h2 class="font-serif text-lg font-bold">Tasks</h2>
+      <ul class="mt-2 space-y-1 text-sm">
+        <% for (const task of tasks) { %><li class="<%= task.status === 'done' ? 'line-through text-navy-300' : '' %>"><%= task.title %></li><% } %>
+      </ul>
+    </div>
+    <div class="card">
+      <h2 class="font-serif text-lg font-bold">Notes</h2>
+      <ul class="mt-2 space-y-2 text-sm">
+        <% for (const note of notes) { %>
+          <li class="rounded bg-navy-50 p-2"><%= note.body %><span class="block text-xs text-navy-400"><%= note.author_name ?? 'System' %> — <%= new Date(note.created_at).toLocaleDateString() %></span></li>
+        <% } %>
+      </ul>
+    </div>
+  </div>
+</div>
+<%- include('../../partials/portal-bottom') %>
