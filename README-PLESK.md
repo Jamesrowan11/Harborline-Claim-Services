@@ -75,42 +75,36 @@ Key values:
   transactional service (Amazon SES recommended for deliverability)
 - Leave `SMS_ENABLED=false` until counsel approves SMS outreach
 
-## 6. First deployment
+## 6. First deployment (Plesk panel only — no SSH needed)
 
-SSH into the server (or use Plesk's "Run script" in the Node.js panel):
+1. **Pull the code** (domain → Git → Pull Updates, or upload via SFTP).
+2. **Set environment variables** (step 5) — at minimum `NODE_ENV=production`,
+   `APP_URL`, `APP_KEY`, and the `DB_*` values.
+3. Click **NPM install** in the Node.js panel. A warning that
+   `better-sqlite3` skipped its build is expected and harmless (it is a
+   local-development-only package).
+4. Click **Restart App** (or Enable Node.js if it is the first start).
+   On boot the app automatically runs database migrations and seeds the
+   baseline data (pipeline stages, templates, default automations) — both
+   are idempotent, so restarts are always safe.
+5. Visit **`https://your-domain/setup`** in your browser. While no accounts
+   exist, this one-time page lets you create the first Super Administrator;
+   it disables itself permanently after that.
+6. Sign in and complete two-factor enrollment with your authenticator app.
 
-```bash
-cd /var/www/vhosts/example.com/httpdocs
-npm ci --omit=dev --omit=optional   # production deps only — no compilers needed
-node src/cli.js migrate             # create all tables
-node src/cli.js seed                # roles, pipeline stages, templates, default automations
-node src/cli.js create-admin you@example.com "Your Name" "a-strong-temporary-password"
-```
+Never seed demo data in production (demo seeding is a separate manual
+command that the panel never runs).
 
-> **Important: always use `--omit=dev --omit=optional` on the server.** Plain
-> `npm install` also pulls dev/optional packages, including `better-sqlite3`
-> (used only for local development/testing), which tries to compile native
-> code and fails on servers without build tools (`make`/gcc). Production uses
-> PostgreSQL or MySQL — SQLite is never needed on the server. The stylesheet
-> (`public/assets/app.css`) is committed to the repository, so no build step
-> runs on the server either.
+## 7. Routine deployments (Plesk panel only)
 
-Then in Plesk → Node.js click **Restart App**. Sign in, complete MFA
-enrollment, and change your password via the reset flow.
+1. Domain → Git → **Pull Updates**.
+2. Click **NPM install** (only needed when `package.json` changed — doing it
+   every time is harmless).
+3. Click **Restart App**. Migrations for the new version run automatically
+   at boot.
 
-Never seed demo data (`seed:demo`) in production.
-
-## 7. Routine deployments
-
-```bash
-cd /var/www/vhosts/example.com/httpdocs
-git pull                         # or Plesk Git "Pull now"
-bash deploy/deploy.sh            # npm ci, css build, migrate, permission checks
-```
-
-Then **Restart App** in the Plesk Node.js panel (or `touch tmp/restart.txt`,
-which Passenger watches). The deploy script performs: dependency install,
-CSS build, database migrations, storage-folder checks, and a health check.
+CLI equivalents exist for all of this (`deploy/deploy.sh`,
+`node src/cli.js …`) if you ever want them, but nothing requires SSH.
 
 ## 8. Scheduler and queue worker
 

@@ -1,0 +1,24 @@
+<%- include('../partials/site-top', { title: 'First-Run Setup' }) %>
+<div class="mx-auto max-w-md px-4 py-16">
+  <div class="card">
+    <h1 class="font-serif text-2xl font-bold">Welcome — First-Run Setup</h1>
+    <p class="mt-2 text-sm text-navy-500">
+      No accounts exist yet. Create the first Super Administrator account.
+      This page disables itself permanently once the account is created.
+    </p>
+    <form method="post" action="/setup" class="mt-6 space-y-4">
+      <input type="hidden" name="_csrf" value="<%= csrf %>">
+      <div><label class="form-label" for="name">Your name</label>
+        <input class="form-input" id="name" name="name" required autofocus></div>
+      <div><label class="form-label" for="email">Email address</label>
+        <input class="form-input" type="email" id="email" name="email" required autocomplete="email"></div>
+      <div><label class="form-label" for="password">Password (12+ characters, letters and numbers)</label>
+        <input class="form-input" type="password" id="password" name="password" required autocomplete="new-password"></div>
+      <div><label class="form-label" for="password_confirmation">Confirm password</label>
+        <input class="form-input" type="password" id="password_confirmation" name="password_confirmation" required autocomplete="new-password"></div>
+      <button type="submit" class="btn-primary w-full">Create Administrator</button>
+    </form>
+    <p class="mt-4 text-xs text-navy-500">After signing in you will be asked to set up two-factor authentication with an authenticator app — have your phone ready.</p>
+  </div>
+</div>
+<%- include('../partials/site-bottom') %>

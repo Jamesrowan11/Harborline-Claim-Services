@@ -16,3 +16,11 @@ After each deploy: click "Restart App" (or `touch tmp/restart.txt`).
 
 No cron jobs or external workers are needed — server.js runs the web
 server, queue worker, and scheduler in one process.
+
+## Panel-only workflow
+
+First deploy: Pull Updates -> set env vars -> NPM install -> Restart App ->
+visit https://your-domain/setup to create the first administrator.
+
+Updates: Pull Updates -> NPM install (if package.json changed) -> Restart App.
+Migrations and baseline seeding run automatically at startup.

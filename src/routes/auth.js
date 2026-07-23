@@ -26,7 +26,11 @@ function hitThrottle(key, max = 5, windowMs = 300_000) {
 export default function authRoutes(publicFormLimiter) {
   const router = Router();
 
-  router.get('/login', (req, res) => res.render('auth/login'));
+  router.get('/login', async (req, res) => {
+    const [{ c }] = await db('users').count({ c: '*' });
+    if (Number(c) === 0) return res.redirect('/setup');
+    res.render('auth/login');
+  });
 
   router.post('/login', publicFormLimiter, async (req, res) => {
     const email = String(req.body.email ?? '').toLowerCase().trim();
@@ -178,6 +182,41 @@ export default function authRoutes(publicFormLimiter) {
     });
     await audit('password_reset', { type: 'user', id: user.id });
     req.session.flash = 'Your password has been reset. Please sign in.';
+    res.redirect('/login');
+  });
+
+
+  // One-time first-run setup: create the initial Super Administrator from the
+  // browser. Only available while no users exist; disables itself afterward.
+  async function noUsersExist() {
+    const [{ c }] = await db('users').count({ c: '*' });
+    return Number(c) === 0;
+  }
+
+  router.get('/setup', async (req, res) => {
+    if (!(await noUsersExist())) return res.redirect('/login');
+    res.render('auth/setup');
+  });
+
+  router.post('/setup', publicFormLimiter, async (req, res) => {
+    if (!(await noUsersExist())) return res.redirect('/login');
+    const { name, email, password, password_confirmation: confirmation } = req.body;
+    if (!name || !email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      req.session.flash = 'Please enter your name and a valid email address.';
+      return res.redirect('/setup');
+    }
+    if (!password || password.length < 12 || !/[a-zA-Z]/.test(password) || !/\d/.test(password) || password !== confirmation) {
+      req.session.flash = 'Passwords must match and contain at least 12 characters with letters and numbers.';
+      return res.redirect('/setup');
+    }
+    const [{ id }] = await db('users').insert({
+      name: String(name).slice(0, 120),
+      email: String(email).toLowerCase().trim(),
+      password: await bcrypt.hash(password, 12),
+      user_type: 'staff', role: 'Super Administrator',
+    }, ['id']);
+    await audit('user_created', { req, type: 'user', id, newValues: { role: 'Super Administrator', via: 'first-run setup' } });
+    req.session.flash = 'Administrator created. Sign in, then complete two-factor enrollment.';
     res.redirect('/login');
   });
 
