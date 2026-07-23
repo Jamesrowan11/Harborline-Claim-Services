@@ -1,51 +1,29 @@
 /**
- * Application startup file — set this as the "Application Startup File" in
- * Plesk's Node.js settings. On boot it migrates the database and seeds
- * baseline data automatically (both idempotent), then starts the web server,
- * the in-process scheduler, and the job-queue worker. Everything is
- * manageable from the Plesk panel: NPM install -> Restart App -> visit
- * /setup in the browser to create the first administrator.
+ * Application startup file for Plesk ("Application Startup File": server.js).
+ * This thin loader captures ANY startup failure — including import-time
+ * errors — and writes it to storage/logs/boot-error.log inside the site
+ * folder, so the real error is always visible in Plesk's File Manager even
+ * when Passenger only says "the application process exited prematurely".
  */
-import cron from 'node-cron';
-import db from './src/db.js';
-import { createApp } from './src/app.js';
-import { config } from './src/config.js';
-import { processJobs } from './src/services/queue.js';
-import { runDailyScans } from './src/services/scans.js';
-import { enforceRetention } from './src/services/retention.js';
-import { seedBaseline } from './src/seeds/baseline.js';
-import { bus } from './src/events.js';
+import fs from 'node:fs';
+import path from 'node:path';
 
-if (config.env === 'production' && !config.appKey) {
-  console.error(
-    'FATAL: APP_KEY environment variable is not set.\n'
-    + 'Generate one in Plesk: Node.js panel -> Run script -> key:generate,\n'
-    + 'then add APP_KEY to Custom environment variables and Restart App.\n'
-    + 'Store a copy in a password manager — it encrypts MFA secrets and sensitive fields.');
+function recordFatal(error) {
+  const message = `[${new Date().toISOString()}] ${error?.stack ?? error}\n\n`;
+  try {
+    const dir = path.join(process.cwd(), 'storage', 'logs');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(path.join(dir, 'boot-error.log'), message);
+  } catch { /* fall through to stderr */ }
+  console.error(message);
   process.exit(1);
 }
+
+process.on('uncaughtException', recordFatal);
+process.on('unhandledRejection', recordFatal);
 
 try {
-  const [batch, applied] = await db.migrate.latest();
-  if (applied.length) console.log(`Migrations applied (batch ${batch}): ${applied.join(', ')}`);
-  await seedBaseline(db); // idempotent: stages, templates, default automations
+  await import('./src/boot.js');
 } catch (error) {
-  console.error('Startup migration/seed failed:', error);
-  process.exit(1);
+  recordFatal(error);
 }
-
-const app = createApp();
-
-app.listen(config.port, () => {
-  console.log(`${config.brand.name} listening on port ${config.port} (${config.env})`);
-});
-
-// Queue worker: poll every 15 seconds.
-setInterval(() => processJobs().catch((e) => console.error('queue worker', e)), 15_000);
-
-// Scheduler (times are server-local).
-cron.schedule('0 6 * * *', () => runDailyScans().catch((e) => console.error('daily scans', e)));
-cron.schedule('30 2 * * *', () => enforceRetention().catch((e) => console.error('retention', e)));
-cron.schedule('0 * * * *', () => bus.emitDomain('schedule.tick', {
-  context: { idempotency_suffix: `tick-${new Date().toISOString().slice(0, 13)}` },
-}).catch((e) => console.error('schedule tick', e)));
