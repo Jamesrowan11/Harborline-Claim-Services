@@ -23,14 +23,12 @@ if [ ! -f .env ] && [ -z "${APP_KEY:-}" ]; then
   echo "WARNING: no .env file found — make sure environment variables are set in the Plesk Node.js panel."
 fi
 
-echo "==> Installing dependencies (including dev, for the CSS build)"
-npm ci --no-audit --no-fund
+echo "==> Installing production dependencies (no dev, no optional/native builds)"
+npm ci --omit=dev --omit=optional --no-audit --no-fund
 
-echo "==> Building stylesheet"
-npm run build:css
-
-echo "==> Pruning dev dependencies"
-npm prune --omit=dev --no-audit --no-fund
+# public/assets/app.css is committed to the repository (built during
+# development with: npm run build:css) so the server needs no build tools.
+[ -f public/assets/app.css ] || echo "WARNING: public/assets/app.css missing — build it locally with 'npm run build:css' and commit it."
 
 if [ "$SKIP_MIGRATIONS" = false ]; then
   echo "==> Running database migrations"

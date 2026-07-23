@@ -6,6 +6,5 @@ storage/database.sqlite
 storage/test.sqlite
 storage/logs/
 storage/app/private-documents/
-public/assets/app.css
 *.log
 .DS_Store

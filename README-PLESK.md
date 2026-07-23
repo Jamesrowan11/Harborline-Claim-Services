@@ -81,16 +81,19 @@ SSH into the server (or use Plesk's "Run script" in the Node.js panel):
 
 ```bash
 cd /var/www/vhosts/example.com/httpdocs
-npm ci --omit=dev                # install production dependencies
-npm run build:css                # compile the stylesheet (needs devDeps: use `npm ci` without --omit=dev the first time, or build locally and commit nothing — see note)
-node src/cli.js migrate          # create all tables
-node src/cli.js seed             # roles, pipeline stages, templates, default automations
+npm ci --omit=dev --omit=optional   # production deps only — no compilers needed
+node src/cli.js migrate             # create all tables
+node src/cli.js seed                # roles, pipeline stages, templates, default automations
 node src/cli.js create-admin you@example.com "Your Name" "a-strong-temporary-password"
 ```
 
-> **CSS note:** `npm run build:css` requires dev dependencies. Either run
-> plain `npm ci` (installs both) or build `public/assets/app.css` on your
-> machine and upload it. The deploy script (§7) handles this automatically.
+> **Important: always use `--omit=dev --omit=optional` on the server.** Plain
+> `npm install` also pulls dev/optional packages, including `better-sqlite3`
+> (used only for local development/testing), which tries to compile native
+> code and fails on servers without build tools (`make`/gcc). Production uses
+> PostgreSQL or MySQL — SQLite is never needed on the server. The stylesheet
+> (`public/assets/app.css`) is committed to the repository, so no build step
+> runs on the server either.
 
 Then in Plesk → Node.js click **Restart App**. Sign in, complete MFA
 enrollment, and change your password via the reset flow.

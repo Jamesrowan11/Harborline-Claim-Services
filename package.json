@@ -17,7 +17,9 @@
     "retention": "node src/cli.js retention",
     "test": "vitest run"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "connect-session-knex": "^5.0.0",
@@ -29,7 +31,7 @@
     "express-session": "^1.18.0",
     "helmet": "^8.0.0",
     "knex": "^3.1.0",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.0.0",
     "mysql2": "^3.11.0",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.15",
@@ -39,9 +41,11 @@
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.0.0",
-    "better-sqlite3": "^11.3.0",
     "supertest": "^7.0.0",
     "tailwindcss": "^4.0.0",
     "vitest": "^2.1.0"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.3.0"
   }
 }
