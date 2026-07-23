@@ -1,9 +1,12 @@
 /**
  * Application startup file for Plesk ("Application Startup File": server.js).
- * This thin loader captures ANY startup failure — including import-time
- * errors — and writes it to storage/logs/boot-error.log inside the site
- * folder, so the real error is always visible in Plesk's File Manager even
- * when Passenger only says "the application process exited prematurely".
+ *
+ * IMPORTANT: Phusion Passenger loads this file with require(), so it must
+ * contain NO top-level await — otherwise the process dies before any code
+ * runs ("application process exited prematurely" with no log). The async
+ * boot happens via a dynamic import; any startup failure — including
+ * import-time errors — is written to storage/logs/boot-error.log inside the
+ * site folder, always visible in Plesk's File Manager.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,8 +25,4 @@ function recordFatal(error) {
 process.on('uncaughtException', recordFatal);
 process.on('unhandledRejection', recordFatal);
 
-try {
-  await import('./src/boot.js');
-} catch (error) {
-  recordFatal(error);
-}
+import('./src/boot.js').catch(recordFatal);
