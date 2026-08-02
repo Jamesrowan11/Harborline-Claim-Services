@@ -1,8 +1,8 @@
-# Harborline Claims Workstation — starter package
+# Harborline Claims Workstation
 
-Database foundation and design reference for the internal claims system.
-Everything here has been applied against a real PostgreSQL instance and the
-compliance rules are covered by a passing test suite.
+Internal case-management system for Harborline Claim Services staff:
+database foundation, compliance test suite, and the application itself
+(Express + TypeScript API, React + Vite workstation UI).
 
 ## What is in this package
 
@@ -15,10 +15,10 @@ db/migrations/004_audit        append-only audit log
 db/test_compliance_rules.py    18 tests proving the rules block what they should
 reference/workstation-mockup   Visual target for the UI
 .env.example                   Copy to .env and fill in
+db/migrations/005_sessions     server-side session store (15-minute idle timeout)
+src/server                     Express + TypeScript API
+src/client                     React + Vite workstation UI
 ```
-
-Empty `src/server` and `src/client` folders are where the application goes.
-That part is not built yet — Claude Code takes it from here.
 
 ## Requirements
 
@@ -43,6 +43,30 @@ ALTER ROLE harborline_app PASSWORD 'a_real_password_here';
 ```
 
 Copy `.env.example` to `.env` and fill in the values. `.env` is gitignored.
+`PII_ENCRYPTION_KEY` must be 32 bytes of base64 (`openssl rand -base64 32`).
+
+## Running the application
+
+```bash
+npm install
+npm run migrate        # applies db/migrations in order (or use psql as above)
+npm run seed           # SYNTHETIC demo data only — prints demo logins + TOTP secrets
+npm run build          # compiles server and client
+npm start              # serves API + UI on PORT (default 3000)
+```
+
+For development with hot reload, run `npm run dev:server` and
+`npm run dev:client` in two terminals; the Vite dev server proxies `/api`
+to the Express server.
+
+Log in with a seeded demo account (the seed prints email, password, and the
+base32 TOTP secret — load the secret into any authenticator app). TOTP is
+mandatory for every account. Sessions end after 15 minutes idle.
+
+Screens: **My Queue** (deadline-sorted worklist), **Case view** (Overview,
+Claimant, Documents, Chain of title, Communications, Agreement, Audit),
+**County Rules** (admin-only CRUD), **Audit Log** (filterable, exports
+require a stated reason).
 
 ## Verifying the compliance rules
 
@@ -71,23 +95,18 @@ The database refuses, regardless of what the application code does:
 - Revealing PII or exporting data without a stated reason of 8+ characters
 - Updating, deleting, or truncating any audit row
 
-## Handing off to Claude Code
+## Working on this codebase
 
-From the project folder, run `claude`, then:
-
-```
-Read CLAUDE.md, README.md, and every file in db/migrations.
-Then read reference/workstation-mockup.html.
-Don't write code yet — summarize what exists and what's missing.
-```
-
-Then work through the screen list in CLAUDE.md in order, committing after each.
+Read CLAUDE.md first — it holds the non-negotiable compliance rules, the
+visual system, and the working agreement. Run the compliance suite after
+any migration change, and keep audit hooks in the same commit as the
+tables they cover.
 
 ## Before real claimant data enters this system
 
-The schema assumes `ssn_encrypted` and `dob_encrypted` hold ciphertext
-produced by the application, not plaintext. That encryption layer is not
-built yet. Do not load real PII until it is, the server is hardened, and a
+`ssn_encrypted` and `dob_encrypted` hold AES-256-GCM ciphertext produced by
+the application (`src/server/src/crypto.ts`); the key never leaves the
+environment. Do not load real PII until the server is hardened and a
 licensed attorney has reviewed the operating model for every state you work in.
 
 Seed and test data must remain obviously synthetic.
