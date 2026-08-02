@@ -8,7 +8,7 @@ after every migration change:
     pip install psycopg2-binary
     python db/test_compliance_rules.py
 
-Expected output: 18 passed, 0 failed.
+Expected output: 21 passed, 0 failed.
 
 Connection comes from DATABASE_URL (falling back to a local dev default).
 All fixture data is obviously synthetic and is rolled back or removed; no
@@ -71,6 +71,9 @@ class Fixtures:
 
     def teardown(self, conn):
         cur = conn.cursor()
+        cur.execute("DELETE FROM payments WHERE claim_id IN "
+                    "(SELECT id FROM claims WHERE county_id IN %s)",
+                    ((self.capped_county, self.unresearched_county),))
         cur.execute("DELETE FROM agreements WHERE claim_id IN "
                     "(SELECT id FROM claims WHERE county_id IN %s)",
                     ((self.capped_county, self.unresearched_county),))
@@ -402,6 +405,71 @@ def t18(conn, fx):
     def go(cur):
         cur.execute("TRUNCATE audit_log")
     expect_rejected(conn, go, "truncate of the audit log")
+
+
+# ---------------------------------------------------------------------------
+# Payments (fee invoicing)
+# ---------------------------------------------------------------------------
+
+@test("payment against an unexecuted agreement is rejected")
+def t19(conn, fx):
+    def go(cur):
+        claim = make_claim(cur, fx.capped_county, verified=True)
+        cur.execute(
+            "INSERT INTO agreements (claim_id, fee_percent) VALUES (%s, 5.00) "
+            "RETURNING id",
+            (claim,),
+        )
+        ag = cur.fetchone()[0]
+        cur.execute(
+            "INSERT INTO payments (claim_id, agreement_id, amount) VALUES (%s, %s, 100.00)",
+            (claim, ag),
+        )
+    expect_rejected(conn, go, "invoice before the agreement is executed")
+
+
+@test("payments exceeding the agreed fee amount are rejected")
+def t20(conn, fx):
+    def go(cur):
+        claim = make_claim(cur, fx.capped_county, verified=True)
+        cur.execute(
+            """
+            INSERT INTO agreements (claim_id, fee_percent, fee_amount, executed_at)
+            VALUES (%s, 5.00, 2500.00, now())
+            RETURNING id
+            """,
+            (claim,),
+        )
+        ag = cur.fetchone()[0]
+        cur.execute(
+            "INSERT INTO payments (claim_id, agreement_id, amount) VALUES (%s, %s, 2000.00)",
+            (claim, ag),
+        )
+        cur.execute(
+            "INSERT INTO payments (claim_id, agreement_id, amount) VALUES (%s, %s, 600.00)",
+            (claim, ag),
+        )
+    expect_rejected(conn, go, "2000 + 600 against an agreed fee of 2500")
+
+
+@test("payment within an executed agreement's fee is accepted")
+def t21(conn, fx):
+    def go(cur):
+        claim = make_claim(cur, fx.capped_county, verified=True)
+        cur.execute(
+            """
+            INSERT INTO agreements (claim_id, fee_percent, fee_amount, executed_at)
+            VALUES (%s, 5.00, 2500.00, now())
+            RETURNING id
+            """,
+            (claim,),
+        )
+        ag = cur.fetchone()[0]
+        cur.execute(
+            "INSERT INTO payments (claim_id, agreement_id, amount) VALUES (%s, %s, 2500.00)",
+            (claim, ag),
+        )
+    expect_accepted(conn, go, "invoice equal to the agreed fee")
 
 
 # ---------------------------------------------------------------------------

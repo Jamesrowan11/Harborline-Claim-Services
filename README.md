@@ -12,7 +12,7 @@ db/migrations/001_foundation   users, roles, counties (the rules table)
 db/migrations/002_claims       claims, claimants, documents, communications
 db/migrations/003_agreements   fee agreements + fee cap and execution-order triggers
 db/migrations/004_audit        append-only audit log
-db/test_compliance_rules.py    18 tests proving the rules block what they should
+db/test_compliance_rules.py    21 tests proving the rules block what they should
 reference/workstation-mockup   Visual target for the UI
 .env.example                   Copy to .env and fill in
 db/migrations/005_sessions     server-side session store (15-minute idle timeout)
@@ -75,7 +75,7 @@ pip install psycopg2-binary
 python db\test_compliance_rules.py
 ```
 
-Expected: `18 passed, 0 failed`.
+Expected: `21 passed, 0 failed`.
 
 Run this after any migration change. If a test starts failing, a compliance
 guarantee has been removed — find out why before continuing.
@@ -94,6 +94,8 @@ The database refuses, regardless of what the application code does:
 - Recording SMS consent without a consent date
 - Revealing PII or exporting data without a stated reason of 8+ characters
 - Updating, deleting, or truncating any audit row
+- Invoicing a payment without an executed, live fee agreement
+- Payments that in total would exceed the agreed fee amount
 
 ## Working on this codebase
 
