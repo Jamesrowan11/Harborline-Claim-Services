@@ -51,6 +51,7 @@ const TABS = [
   "Chain of title",
   "Communications",
   "Agreement",
+  "Payments",
   "Audit",
 ] as const;
 
@@ -96,6 +97,7 @@ export function CasePage({ user }: { user: SessionUser }) {
       {tab === "Agreement" && (
         <AgreementTab data={data} claimId={id!} user={user} reload={reload} />
       )}
+      {tab === "Payments" && <PaymentsTab data={data} claimId={id!} user={user} />}
       {tab === "Audit" && <AuditTab data={data} />}
     </>
   );
@@ -801,6 +803,176 @@ function AgreementTab({
           onClose={() => setVoiding(null)}
         />
       )}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+interface PaymentRow {
+  id: string;
+  agreement_id: string;
+  amount: string;
+  currency: string;
+  status: string;
+  checkout_url: string | null;
+  created_at: string;
+  paid_at: string | null;
+  created_by_email: string | null;
+}
+
+function PaymentsTab({
+  data,
+  claimId,
+  user,
+}: {
+  data: CaseData;
+  claimId: string;
+  user: SessionUser;
+}) {
+  const canManage = user.role === "admin" || user.role === "case_manager";
+  const live = data.agreements.find(
+    (a) => !a.void_reason && !a.superseded_by_agreement_id
+  );
+  const executed = live?.executed_at != null;
+  const [amount, setAmount] = useState<string>(live?.fee_amount ?? "");
+  const [err, setErr] = useState<string | null>(null);
+  const { data: pay, error, reload } = useAsync(
+    () => api<{ payments: PaymentRow[]; stripe_enabled: boolean }>(
+      `/api/claims/${claimId}/payments`
+    ),
+    [claimId]
+  );
+
+  const create = async () => {
+    setErr(null);
+    try {
+      await api(`/api/claims/${claimId}/payments`, {
+        method: "POST",
+        body: { agreement_id: live!.id, amount: Number(amount) },
+      });
+      reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "failed");
+    }
+  };
+
+  const cancel = async (id: string) => {
+    setErr(null);
+    try {
+      await api(`/api/payments/${id}/cancel`, { method: "POST" });
+      reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "failed");
+    }
+  };
+
+  const tone = (s: string) =>
+    s === "paid" ? "green" : s === "pending" ? "amber" : s === "failed" ? "red" : undefined;
+
+  return (
+    <>
+      {pay && !pay.stripe_enabled && (
+        <div className="card">
+          <div className="cardbody sub">
+            Stripe is not configured. Set <span className="mono">STRIPE_SECRET_KEY</span> and{" "}
+            <span className="mono">STRIPE_WEBHOOK_SECRET</span> in <span className="mono">.env</span>{" "}
+            and restart to enable fee invoicing. Invoices can only be created against an
+            executed, live fee agreement, and never for more than the agreed fee — the
+            database refuses both.
+          </div>
+        </div>
+      )}
+      {canManage && (
+        <div className="card">
+          <div className="cardhead">Create fee invoice</div>
+          <div className="cardbody">
+            {!live ? (
+              <div className="sub">No live agreement on this claim — generate one first.</div>
+            ) : !executed ? (
+              <div className="sub">
+                The live agreement is not executed yet. Payments are blocked until it is.
+              </div>
+            ) : (
+              <div className="formrow">
+                <div className="field">
+                  <label>Amount (USD) — agreed fee {live.fee_amount ?? "not recorded"}</label>
+                  <input
+                    className="mono"
+                    style={{ width: 120 }}
+                    inputMode="decimal"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                </div>
+                <button
+                  className="primary"
+                  disabled={!amount || !(pay?.stripe_enabled ?? false)}
+                  onClick={create}
+                >
+                  Create Stripe invoice
+                </button>
+              </div>
+            )}
+            {err && <div className="error">{err}</div>}
+          </div>
+        </div>
+      )}
+      {error && <div className="error">{error}</div>}
+      <div className="card">
+        <div className="cardhead">Invoices</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Created</th>
+              <th className="num">Amount</th>
+              <th>Status</th>
+              <th>Paid</th>
+              <th>By</th>
+              <th>Checkout link</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {pay?.payments.map((p) => (
+              <tr key={p.id}>
+                <td className="mono">{fmtTs(p.created_at)}</td>
+                <td className="num mono">
+                  {Number(p.amount).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                </td>
+                <td>
+                  <Pill tone={tone(p.status)}>{p.status}</Pill>
+                </td>
+                <td className="mono">{p.paid_at ? fmtTs(p.paid_at) : "—"}</td>
+                <td className="sub">{p.created_by_email?.split("@")[0] ?? "—"}</td>
+                <td>
+                  {p.checkout_url && p.status === "pending" ? (
+                    <a href={p.checkout_url} target="_blank" rel="noreferrer">
+                      open checkout
+                    </a>
+                  ) : (
+                    <span className="faint">—</span>
+                  )}
+                </td>
+                <td>
+                  {canManage && p.status === "pending" && (
+                    <button className="danger" onClick={() => cancel(p.id)}>
+                      Cancel
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {pay && pay.payments.length === 0 && (
+              <tr>
+                <td colSpan={7} className="faint">
+                  No invoices.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

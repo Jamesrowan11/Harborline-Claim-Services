@@ -38,9 +38,26 @@ export function Counties({ user }: { user: SessionUser }) {
   );
   const [editing, setEditing] = useState<Partial<County> | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
+  const [stateFilter, setStateFilter] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [csv, setCsv] = useState("");
+  const [importResult, setImportResult] = useState<string | null>(null);
+
+  const filtered = data?.counties.filter((c) => {
+    if (stateFilter && c.state !== stateFilter) return false;
+    if (!filter) return true;
+    const q = filter.toLowerCase();
+    return (
+      c.county_name.toLowerCase().includes(q) ||
+      (c.funds_holder_name ?? "").toLowerCase().includes(q) ||
+      (c.filing_deadline_rule ?? "").toLowerCase().includes(q)
+    );
+  });
+  const states = [...new Set((data?.counties ?? []).map((c) => c.state))].sort();
 
   const { sorted, sort, toggle } = useSort<County>(
-    data?.counties,
+    filtered,
     { key: "state", dir: 1 },
     {
       state: (c) => `${c.state} ${c.county_name}`,
@@ -85,12 +102,87 @@ export function Counties({ user }: { user: SessionUser }) {
         <div className="count">
           fee caps, deadlines, and blackout periods — the source of truth that gates every action
         </div>
+        <input
+          placeholder="Filter county, holder, rule"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          style={{ width: 220 }}
+        />
+        <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
+          <option value="">All states</option>
+          {states.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
         {isAdmin && (
-          <button className="primary" onClick={() => setEditing({ ...EMPTY })}>
-            Add county
-          </button>
+          <>
+            <button className="primary" onClick={() => setEditing({ ...EMPTY })}>
+              Add county
+            </button>
+            <button onClick={() => setImporting(!importing)}>Import CSV…</button>
+          </>
         )}
       </div>
+      {importing && isAdmin && (
+        <div className="card">
+          <div className="cardhead">Import counties from CSV</div>
+          <div className="cardbody">
+            <div className="sub" style={{ marginBottom: 6 }}>
+              Header row required:{" "}
+              <span className="mono">
+                state,county_name,funds_holder_name,holder_contact,fee_cap_percent,filing_deadline_rule,contact_blackout_days,licensing_required,notes,last_verified_date
+              </span>
+              . Leave fee_cap_percent empty for unresearched — no agreements will be
+              permitted there until the cap is entered. Enter rules only after
+              verifying them against the jurisdiction; record the date in
+              last_verified_date.
+            </div>
+            <textarea
+              rows={6}
+              style={{ width: "100%" }}
+              className="mono"
+              placeholder={
+                "state,county_name,fee_cap_percent,filing_deadline_rule,contact_blackout_days,licensing_required,last_verified_date\nMD,Example County,10,180 days from ratification,30,false,2026-08-01"
+              }
+              value={csv}
+              onChange={(e) => setCsv(e.target.value)}
+            />
+            <div className="formrow" style={{ marginTop: 8 }}>
+              <button
+                className="primary"
+                disabled={!csv.trim()}
+                onClick={async () => {
+                  setErr(null);
+                  setImportResult(null);
+                  try {
+                    const r = await api<{ inserted: number; errors: { line: number; error: string }[] }>(
+                      "/api/counties/import",
+                      { method: "POST", body: { csv } }
+                    );
+                    setImportResult(
+                      `${r.inserted} inserted` +
+                        (r.errors.length
+                          ? `; ${r.errors.length} rejected — ` +
+                            r.errors.map((e) => `line ${e.line}: ${e.error}`).join("; ")
+                          : "")
+                    );
+                    if (r.inserted) setCsv("");
+                    reload();
+                  } catch (e) {
+                    setErr(e instanceof Error ? e.message : "failed");
+                  }
+                }}
+              >
+                Import
+              </button>
+              <button onClick={() => setImporting(false)}>Close</button>
+              {importResult && <span className="sub">{importResult}</span>}
+            </div>
+          </div>
+        </div>
+      )}
       {!isAdmin && (
         <div className="sub" style={{ marginBottom: 8 }}>
           Read-only: county rules are edited by administrators.
