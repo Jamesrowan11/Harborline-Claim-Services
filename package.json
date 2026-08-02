@@ -1,0 +1,21 @@
+{
+  "name": "harborline-claims-workstation",
+  "private": true,
+  "description": "Internal case-management system for Harborline Claim Services staff.",
+  "workspaces": [
+    "src/server",
+    "src/client"
+  ],
+  "scripts": {
+    "migrate": "npm run migrate -w src/server",
+    "seed": "npm run seed -w src/server",
+    "dev:server": "npm run dev -w src/server",
+    "dev:client": "npm run dev -w src/client",
+    "build": "npm run build -w src/server && npm run build -w src/client",
+    "start": "npm run start -w src/server",
+    "test:compliance": "python3 db/test_compliance_rules.py"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
