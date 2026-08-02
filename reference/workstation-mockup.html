@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Harborline Claims Workstation — visual target (My Queue)</title>
+<style>
+  /* Visual system — CLAUDE.md. Use exactly these hues; introduce no others. */
+  :root {
+    --navy-900: #0B1F3A;
+    --navy-700: #163254;
+    --work:     #F5F6F8;
+    --surface:  #FFFFFF;
+    --rule:     #D8DDE4;
+    --ink:      #12161C;
+    --ink-2:    #4A5361;
+    --ink-3:    #7A8493;
+    --link:     #1F5FA8;
+    --amber:    #B26A00;
+    --red:      #B3261E;
+    --green:    #1B6B4A;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { font-size: 13px; }
+  body {
+    font-family: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--work);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+  .mono {
+    font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- Top bar ---- */
+  .topbar {
+    background: var(--navy-900);
+    color: #fff;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 16px;
+  }
+  .topbar .brand { font-weight: 600; letter-spacing: 0.02em; }
+  .topbar .brand span { color: var(--ink-3); font-weight: 400; }
+  .topbar .spacer { flex: 1; }
+  .topbar .session { color: #B9C2CF; font-size: 12px; }
+  .topbar .session .timeout { color: #fff; }
+
+  /* ---- Layout ---- */
+  .shell { display: flex; min-height: calc(100vh - 44px); }
+  .rail {
+    background: var(--navy-700);
+    width: 172px;
+    flex: none;
+    padding: 12px 0;
+  }
+  .rail a {
+    display: block;
+    color: #C6CFDB;
+    text-decoration: none;
+    padding: 7px 16px;
+    font-size: 12.5px;
+  }
+  .rail a.active {
+    background: var(--navy-900);
+    color: #fff;
+    border-left: 3px solid #fff;
+    padding-left: 13px;
+  }
+  .rail .section {
+    color: #7E8CA0;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 14px 16px 4px;
+  }
+  main { flex: 1; padding: 16px 20px; min-width: 0; }
+
+  /* ---- Page header ---- */
+  .pagehead { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+  .pagehead h1 { font-size: 16px; font-weight: 600; }
+  .pagehead .count { color: var(--ink-2); font-size: 12px; }
+  .pagehead .synthetic {
+    margin-left: auto;
+    color: var(--amber);
+    border: 1px solid var(--amber);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  /* ---- Queue table ---- */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-3);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--work); }
+  td.num { text-align: right; }
+  th.num { text-align: right; }
+  a.ref { color: var(--link); text-decoration: none; }
+  a.ref:hover { text-decoration: underline; }
+  .sub { color: var(--ink-2); font-size: 12px; }
+
+  /* Verified vs unverified surplus — must never render identically. */
+  .surplus-verified { color: var(--ink); }
+  .surplus-verified .flag { color: var(--green); font-size: 11px; font-weight: 600; }
+  .surplus-unverified { color: var(--ink-2); font-style: italic; }
+  .surplus-unverified .flag {
+    color: var(--amber);
+    font-style: normal;
+    font-size: 10.5px;
+    font-weight: 700;
+    border: 1px solid var(--amber);
+    border-radius: 4px;
+    padding: 0 4px;
+    margin-left: 6px;
+    letter-spacing: 0.04em;
+  }
+
+  /* Filing window — the most important element on the screen. */
+  .window { display: flex; align-items: center; gap: 8px; min-width: 180px; }
+  .track {
+    flex: 1;
+    height: 6px;
+    background: var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .track .fill { height: 100%; border-radius: 4px; }
+  .w-green .fill { background: var(--green); }
+  .w-amber .fill { background: var(--amber); }
+  .w-red   .fill { background: var(--red); }
+  .window .days { width: 58px; text-align: right; font-size: 12px; }
+  .w-green .days { color: var(--green); }
+  .w-amber .days { color: var(--amber); }
+  .w-red   .days { color: var(--red); font-weight: 700; }
+
+  .stage {
+    display: inline-block;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: var(--ink-2);
+    background: var(--work);
+  }
+
+  .foot {
+    padding: 8px 10px;
+    color: var(--ink-3);
+    font-size: 11.5px;
+    border-top: 1px solid var(--rule);
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">HARBORLINE <span>/ Claims Workstation</span></div>
+  <div class="spacer"></div>
+  <div class="session">m.tanaka@harborline.example &middot; case_manager &middot;
+    session <span class="timeout mono">14:32</span></div>
+</div>
+
+<div class="shell">
+  <nav class="rail">
+    <div class="section">Work</div>
+    <a href="#" class="active">My Queue</a>
+    <a href="#">All Claims</a>
+    <div class="section">Reference</div>
+    <a href="#">County Rules</a>
+    <div class="section">Oversight</div>
+    <a href="#">Audit Log</a>
+  </nav>
+
+  <main>
+    <div class="pagehead">
+      <h1>My Queue</h1>
+      <div class="count">6 files &middot; sorted by days until filing deadline</div>
+      <div class="synthetic">SYNTHETIC DEMO DATA</div>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>Ref</th>
+            <th>Claimant</th>
+            <th>County</th>
+            <th>Stage</th>
+            <th class="num">Surplus</th>
+            <th>Filing window</th>
+            <th>Owner</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono"><a class="ref" href="#">HCS-2026-0141</a></td>
+            <td>ZZTEST Alvarez Estate</td>
+            <td>Baltimore, MD</td>
+            <td><span class="stage">docs pending</span></td>
+            <td class="num mono surplus-verified">61,240.00 <span class="flag">&#10003; ver</span></td>
+            <td>
+              <div class="window w-red">
+                <div class="track"><div class="fill" style="width:8%"></div></div>
+                <div class="days mono">12 d</div>
+              </div>
+            </td>
+            <td class="sub">m.tanaka</td>
+          </tr>
+          <tr>
+            <td class="mono"><a class="ref" href="#">HCS-2026-0158</a></td>
+            <td>ZZTEST Okafor Heirs</td>
+            <td>Anne Arundel, MD</td>
+            <td><span class="stage">agreement out</span></td>
+            <td class="num mono surplus-verified">18,905.50 <span class="flag">&#10003; ver</span></td>
+            <td>
+              <div class="window w-red">
+                <div class="track"><div class="fill" style="width:17%"></div></div>
+                <div class="days mono">28 d</div>
+              </div>
+            </td>
+            <td class="sub">m.tanaka</td>
+          </tr>
+          <tr>
+            <td class="mono"><a class="ref" href="#">HCS-2026-0102</a></td>
+            <td>ZZTEST Bergström Trust</td>
+            <td>Fairfax, VA</td>
+            <td><span class="stage">verification</span></td>
+            <td class="num mono surplus-unverified">~44,000<span class="flag">UNVERIFIED</span></td>
+            <td>
+              <div class="window w-amber">
+                <div class="track"><div class="fill" style="width:31%"></div></div>
+                <div class="days mono">39 d</div>
+              </div>
+            </td>
+            <td class="sub">m.tanaka</td>
+          </tr>
+          <tr>
+            <td class="mono"><a class="ref" href="#">HCS-2026-0177</a></td>
+            <td>ZZTEST Nguyen Estate</td>
+            <td>Cook, IL</td>
+            <td><span class="stage">chain of title</span></td>
+            <td class="num mono surplus-unverified">~9,300<span class="flag">UNVERIFIED</span></td>
+            <td>
+              <div class="window w-amber">
+                <div class="track"><div class="fill" style="width:44%"></div></div>
+                <div class="days mono">55 d</div>
+              </div>
+            </td>
+            <td class="sub">m.tanaka</td>
+          </tr>
+          <tr>
+            <td class="mono"><a class="ref" href="#">HCS-2026-0189</a></td>
+            <td>ZZTEST Whitfield Heirs</td>
+            <td>Maricopa, AZ</td>
+            <td><span class="stage">intake</span></td>
+            <td class="num mono surplus-verified">102,377.25 <span class="flag">&#10003; ver</span></td>
+            <td>
+              <div class="window w-green">
+                <div class="track"><div class="fill" style="width:70%"></div></div>
+                <div class="days mono">88 d</div>
+              </div>
+            </td>
+            <td class="sub">m.tanaka</td>
+          </tr>
+          <tr>
+            <td class="mono"><a class="ref" href="#">HCS-2026-0193</a></td>
+            <td>ZZTEST Ionescu Estate</td>
+            <td>Harris, TX</td>
+            <td><span class="stage">intake</span></td>
+            <td class="num mono surplus-unverified">~27,600<span class="flag">UNVERIFIED</span></td>
+            <td>
+              <div class="window w-green">
+                <div class="track"><div class="fill" style="width:92%"></div></div>
+                <div class="days mono">115 d</div>
+              </div>
+            </td>
+            <td class="sub">m.tanaka</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="foot">
+        All rows are synthetic demonstration data. Unverified amounts are
+        estimates and are never asserted to claimants. Queue viewed events are
+        written to the audit log.
+      </div>
+    </div>
+  </main>
+</div>
+
+</body>
+</html>

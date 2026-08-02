@@ -1,10 +1,8 @@
+node_modules/
+dist/
 .env
 .env.*
-!.env.example
-node_modules/
-storage/database.sqlite
-storage/test.sqlite
-storage/logs/
-storage/app/private-documents/
 *.log
+/uploads/
+/tmp/
 .DS_Store
