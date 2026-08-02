@@ -22,6 +22,11 @@ export const config = {
   piiEncryptionKey: required("PII_ENCRYPTION_KEY"),
   nodeEnv: process.env.NODE_ENV ?? "development",
   port: Number(process.env.PORT ?? 3000),
+  // Stripe is optional: without a secret key the payments module stays
+  // visible but clearly disabled. Keys never have defaults.
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? null,
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? null,
+  appUrl: process.env.APP_URL ?? `http://localhost:${process.env.PORT ?? 3000}`,
   // Session timeout: 15 minutes idle, per spec. Rolling: every request
   // pushes the expiry forward.
   sessionIdleMs: 15 * 60 * 1000,

@@ -79,6 +79,14 @@ async function main(): Promise<void> {
   const cook = await county("IL", "ZZTEST Cook", null, "ZZTEST County Treasurer", 60, true, "UNRESEARCHED — do not proceed");
   const maricopa = await county("AZ", "ZZTEST Maricopa", 25, "ZZTEST County Treasurer", 30, false, "2 years from sale date");
   const harris = await county("TX", "ZZTEST Harris", 10, "ZZTEST District Clerk", 30, true, "2 years from sale date");
+  const extraCounties = [
+    await county("WA", "ZZTEST King", 5, "ZZTEST County Treasurer", 30, false, "3 years from sale date"),
+    await county("FL", "ZZTEST Broward", 12, "ZZTEST Clerk of Court", 45, true, "120 days from surplus notice"),
+    await county("FL", "ZZTEST Duval", 12, "ZZTEST Clerk of Court", 45, true, "120 days from surplus notice"),
+    await county("GA", "ZZTEST Fulton", null, "ZZTEST Tax Commissioner", 60, true, "UNRESEARCHED — do not proceed"),
+    await county("OH", "ZZTEST Franklin", 10, "ZZTEST County Auditor", 30, false, "3 years from confirmation"),
+    await county("NC", "ZZTEST Wake", 15, "ZZTEST Clerk of Superior Court", 30, false, "1 year from final accounting"),
+  ];
 
   const claimant = async (
     name: string,
@@ -243,11 +251,61 @@ async function main(): Promise<void> {
 
   // One live, compliant agreement: 9% in a 10%-cap county, executed after
   // verification. Anything less compliant is refused by the triggers.
-  await query(
+  const agR = await query<{ id: string }>(
     `INSERT INTO agreements (claim_id, fee_percent, fee_amount, executed_at)
-     VALUES ($1, 9.00, 5511.60, now() - interval '5 days')`,
+     VALUES ($1, 9.00, 5511.60, now() - interval '5 days')
+     RETURNING id`,
     [c1.id]
   );
+  // A settled demo invoice against that agreement (no Stripe ids — this
+  // predates the integration and demonstrates the paid state).
+  await query(
+    `INSERT INTO payments (claim_id, agreement_id, amount, status, paid_at, created_by)
+     VALUES ($1, $2, 5511.60, 'paid', now() - interval '2 days', $3)`,
+    [c1.id, agR.rows[0].id, users.case_manager]
+  );
+
+  // ---------------------------------------------------------------------
+  // Bulk synthetic claims so the queue fills a 1080p viewport. Everything
+  // remains unmistakably fake.
+  // ---------------------------------------------------------------------
+  const surnames = [
+    "Okonkwo", "Petrov", "Tanaka", "Silva", "Novak", "Haddad",
+    "Larsen", "Quintero", "Mbeki", "Kowalski", "Dubois", "Ferreira",
+  ];
+  const claimantPool: string[] = [];
+  for (let i = 0; i < surnames.length; i++) {
+    claimantPool.push(
+      await claimant(
+        `ZZTEST ${surnames[i]} Estate`,
+        i % 3 === 0 ? "heir" : i % 3 === 1 ? "surviving spouse" : "former owner",
+        `000-00-0${String(10 + i)}`,
+        `19${60 + i}-01-01`,
+        i % 4 === 0
+          ? { sms: true, smsDate: daysFromNow(-20 - i), preferred: "sms" }
+          : i % 4 === 1
+            ? { emailConsent: true, email: `${surnames[i].toLowerCase()}@zztest.example`, preferred: "email" }
+            : {}
+      )
+    );
+  }
+  const allCounties = [baltimore, anneArundel, fairfax, cook, maricopa, harris, ...extraCounties];
+  const stages = ["intake", "research", "chain of title", "verification", "docs pending", "agreement out", "filing prep"];
+  const owners = ["case_manager", "case_manager", "researcher", "admin"];
+  const deadlines = [5, 8, 11, 15, 19, 23, 27, 31, 36, 41, 46, 52, 58, 64, 71, 78, 86, 94, 103, 112, 121, 131, 141, 150];
+  for (let i = 0; i < 24; i++) {
+    const verified = i % 3 !== 0;
+    const c = await claim(allCounties[i % allCounties.length], {
+      surplus: 4000 + i * 3517.25,
+      verified,
+      deadlineDays: deadlines[i],
+      stage: stages[i % stages.length],
+      owner: owners[i % owners.length],
+      saleAmount: 120000 + i * 9000,
+      debt: 90000 + i * 5000,
+    });
+    await link(c.id, claimantPool[i % claimantPool.length], 100, true);
+  }
 
   console.log("seed: complete — SYNTHETIC DEMO DATA ONLY");
   console.log("");

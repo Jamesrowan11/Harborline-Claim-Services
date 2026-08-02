@@ -16,11 +16,19 @@ import { agreementsRouter } from "./routes/agreements.js";
 import { countiesRouter } from "./routes/counties.js";
 import { auditRouter } from "./routes/audit.js";
 import { searchRouter } from "./routes/search.js";
+import { paymentsRouter } from "./routes/payments.js";
+import { stripeWebhookRouter } from "./routes/stripeWebhook.js";
+import { stripeEnabled } from "./stripe.js";
 
 export function buildApp(): express.Express {
   const app = express();
   app.set("trust proxy", 1);
-  app.use(express.json({ limit: "256kb" }));
+
+  // Stripe webhook first: it verifies a signature over the RAW body, so it
+  // must be mounted before the JSON parser and needs no session.
+  app.use("/api/stripe/webhook", stripeWebhookRouter);
+
+  app.use(express.json({ limit: "1mb" }));
 
   const PgStore = connectPgSimple(session);
   app.use(
@@ -61,6 +69,7 @@ export function buildApp(): express.Express {
       const m = r.rows[0];
       res.json({
         synthetic_data: m.synthetic,
+        stripe_enabled: stripeEnabled(),
         queue_count: Number(m.queue_count),
         open_count: Number(m.open_count),
         counties_count: Number(m.counties_count),
@@ -74,6 +83,7 @@ export function buildApp(): express.Express {
   app.use("/api/claims", claimsRouter);
   app.use("/api/claims", communicationsRouter);
   app.use("/api", agreementsRouter);
+  app.use("/api", paymentsRouter);
   app.use("/api/counties", countiesRouter);
   app.use("/api/audit", auditRouter);
 
