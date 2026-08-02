@@ -15,6 +15,7 @@ import { communicationsRouter } from "./routes/communications.js";
 import { agreementsRouter } from "./routes/agreements.js";
 import { countiesRouter } from "./routes/counties.js";
 import { auditRouter } from "./routes/audit.js";
+import { searchRouter } from "./routes/search.js";
 
 export function buildApp(): express.Express {
   const app = express();
@@ -44,18 +45,31 @@ export function buildApp(): express.Express {
   // Everything below requires a live session and an active account.
   app.use("/api", requireAuth, a(refreshAccountState));
 
-  // Synthetic-data flag so the client can label demo data in the UI
-  // (non-negotiable rule 6).
+  // Synthetic-data flag (non-negotiable rule 6) plus the nav-rail counts.
   app.get(
     "/api/meta",
-    a(async (_req, res) => {
+    a(async (req, res) => {
       const r = await query(
-        "SELECT EXISTS (SELECT 1 FROM claimants WHERE legal_name LIKE 'ZZTEST%') AS synthetic"
+        `SELECT
+           EXISTS (SELECT 1 FROM claimants WHERE legal_name LIKE 'ZZTEST%') AS synthetic,
+           (SELECT count(*) FROM claims WHERE closed_at IS NULL AND assigned_to = $1) AS queue_count,
+           (SELECT count(*) FROM claims WHERE closed_at IS NULL) AS open_count,
+           (SELECT count(*) FROM counties) AS counties_count,
+           (SELECT count(*) FROM audit_log WHERE occurred_at >= CURRENT_DATE) AS audit_today_count`,
+        [req.session.user!.id]
       );
-      res.json({ synthetic_data: r.rows[0].synthetic });
+      const m = r.rows[0];
+      res.json({
+        synthetic_data: m.synthetic,
+        queue_count: Number(m.queue_count),
+        open_count: Number(m.open_count),
+        counties_count: Number(m.counties_count),
+        audit_today_count: Number(m.audit_today_count),
+      });
     })
   );
 
+  app.use("/api/search", searchRouter);
   app.use("/api/queue", queueRouter);
   app.use("/api/claims", claimsRouter);
   app.use("/api/claims", communicationsRouter);

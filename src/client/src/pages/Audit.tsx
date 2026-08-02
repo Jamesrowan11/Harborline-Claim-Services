@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api, apiDownload } from "../api";
-import { ReasonModal, fmtTs, useAsync } from "../components/bits";
+import { ReasonModal, Th, fmtTs, useAsync, useSort } from "../components/bits";
 
 interface AuditRow {
   id: number;
@@ -45,6 +45,16 @@ export function AuditPage() {
   const { data, error } = useAsync(
     () => api<{ rows: AuditRow[] }>(`/api/audit${qs ? `?${qs}` : ""}`),
     [qs]
+  );
+  const { sorted, sort, toggle } = useSort<AuditRow>(
+    data?.rows,
+    { key: "when", dir: -1 },
+    {
+      when: (r) => r.occurred_at,
+      user: (r) => r.user_email,
+      action: (r) => r.action,
+      entity: (r) => `${r.entity_type}:${r.entity_id ?? ""}`,
+    }
   );
 
   const set = (k: keyof typeof filters) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -103,17 +113,17 @@ export function AuditPage() {
         <table>
           <thead>
             <tr>
-              <th>When</th>
-              <th>User</th>
-              <th>Action</th>
-              <th>Entity</th>
-              <th>Field</th>
-              <th>Reason</th>
-              <th>IP</th>
+              <Th label="When" sortKey="when" sort={sort} onSort={toggle} />
+              <Th label="User" sortKey="user" sort={sort} onSort={toggle} />
+              <Th label="Action" sortKey="action" sort={sort} onSort={toggle} />
+              <Th label="Entity" sortKey="entity" sort={sort} onSort={toggle} />
+              <Th label="Field" />
+              <Th label="Reason" />
+              <Th label="IP" />
             </tr>
           </thead>
           <tbody>
-            {data?.rows.map((r) => (
+            {sorted?.map((r) => (
               <tr key={r.id}>
                 <td className="mono">{fmtTs(r.occurred_at)}</td>
                 <td className="sub">{r.user_email ?? "—"}</td>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import type { SessionUser } from "../api";
-import { fmtDate, useAsync } from "../components/bits";
+import { Th, fmtDate, useAsync, useSort } from "../components/bits";
 
 interface County {
   id: string;
@@ -38,6 +38,19 @@ export function Counties({ user }: { user: SessionUser }) {
   );
   const [editing, setEditing] = useState<Partial<County> | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  const { sorted, sort, toggle } = useSort<County>(
+    data?.counties,
+    { key: "state", dir: 1 },
+    {
+      state: (c) => `${c.state} ${c.county_name}`,
+      county: (c) => c.county_name,
+      holder: (c) => c.funds_holder_name,
+      cap: (c) => (c.fee_cap_percent == null ? null : Number(c.fee_cap_percent)),
+      blackout: (c) => c.contact_blackout_days,
+      verified: (c) => c.last_verified_date,
+    }
+  );
 
   const save = async () => {
     if (!editing) return;
@@ -208,19 +221,19 @@ export function Counties({ user }: { user: SessionUser }) {
         <table>
           <thead>
             <tr>
-              <th>State</th>
-              <th>County</th>
-              <th>Funds holder</th>
-              <th className="num">Fee cap</th>
-              <th>Deadline rule</th>
-              <th className="num">Blackout</th>
-              <th>Licensing</th>
-              <th>Verified</th>
+              <Th label="State" sortKey="state" sort={sort} onSort={toggle} />
+              <Th label="County" sortKey="county" sort={sort} onSort={toggle} />
+              <Th label="Funds holder" sortKey="holder" sort={sort} onSort={toggle} />
+              <Th label="Fee cap" sortKey="cap" sort={sort} onSort={toggle} num />
+              <Th label="Deadline rule" />
+              <Th label="Blackout" sortKey="blackout" sort={sort} onSort={toggle} num />
+              <Th label="Licensing" />
+              <Th label="Verified" sortKey="verified" sort={sort} onSort={toggle} />
               {isAdmin && <th />}
             </tr>
           </thead>
           <tbody>
-            {data?.counties.map((c) => (
+            {sorted?.map((c) => (
               <tr key={c.id}>
                 <td className="mono">{c.state}</td>
                 <td>{c.county_name}</td>

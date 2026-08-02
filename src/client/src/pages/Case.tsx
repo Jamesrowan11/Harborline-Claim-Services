@@ -4,6 +4,7 @@ import { api } from "../api";
 import type { SessionUser } from "../api";
 import {
   FilingWindow,
+  Pill,
   ReasonModal,
   Stage,
   Surplus,
@@ -441,18 +442,17 @@ function DocumentsTab({ data }: { data: CaseData }) {
                 <td>{d.filename}</td>
                 <td className="sub">{d.received_from ?? "—"}</td>
                 <td>
-                  <span
-                    style={{
-                      color:
-                        d.virus_scan_status === "clean"
-                          ? "var(--green)"
-                          : d.virus_scan_status === "infected"
-                            ? "var(--red)"
-                            : "var(--amber)",
-                    }}
+                  <Pill
+                    tone={
+                      d.virus_scan_status === "clean"
+                        ? "green"
+                        : d.virus_scan_status === "infected"
+                          ? "red"
+                          : "amber"
+                    }
                   >
                     {d.virus_scan_status}
-                  </span>
+                  </Pill>
                 </td>
                 <td className="mono">{fmtTs(d.uploaded_at)}</td>
                 <td className="mono sub">{String(d.sha256).slice(0, 12)}…</td>
@@ -758,11 +758,13 @@ function AgreementTab({
                   <td className="mono">{ag.executed_at ? fmtTs(ag.executed_at) : "—"}</td>
                   <td>
                     {ag.void_reason ? (
-                      <span className="sub">void: {ag.void_reason}</span>
+                      <>
+                        <Pill>void</Pill> <span className="sub">{ag.void_reason}</span>
+                      </>
                     ) : ag.superseded_by_agreement_id ? (
-                      <span className="sub">superseded</span>
+                      <Pill>superseded</Pill>
                     ) : (
-                      <span className="notice">live</span>
+                      <Pill tone="green">live</Pill>
                     )}
                   </td>
                   <td>
